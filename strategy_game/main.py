@@ -1,10 +1,29 @@
+import pygame
+import time
 from gym_strategy.envs.StrategyEnv import StrategyEnv
 
-env = StrategyEnv()
-obs = env.reset()
+def main():
+    env = StrategyEnv()
+    obs = env.reset()
+    done = False
 
-done = False
-while not done:
-    action = env.action_space.sample()  # Random action
-    obs, reward, done, _ = env.step(action)
-    print(f"Reward: {reward}")
+    while not done:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+
+        env.render()  # Renderizar el tablero
+
+        action_type = env.action_type_space.sample()  # Elegir acción aleatoria
+        position = env.position_space.sample()  # Elegir posición aleatoria
+
+        obs, reward, done, _ = env.step(action_type, position)
+        print(f"Acción: {action_type}, Posición: {position}, Recompensa: {reward}")
+
+        time.sleep(0.5)  # Pequeño retraso para visualizar cambios
+
+    print("Juego terminado")
+
+if __name__ == "__main__":
+    main()
