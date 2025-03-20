@@ -13,15 +13,15 @@ def main():
                 pygame.quit()
                 return
 
-        env.render()  # Renderizar el tablero
+        env.render()  
 
-        action_type = env.action_type_space.sample()  # Elegir acción aleatoria
-        position = env.position_space.sample()  # Elegir posición aleatoria
+        action_type = env.action_type_space.sample()  
+        position = env.position_space.sample()  
 
         obs, reward, done, _ = env.step(action_type, position)
         print(f"Acción: {action_type}, Posición: {position}, Recompensa: {reward}")
 
-        time.sleep(0.5)  # Pequeño retraso para visualizar cambios
+        time.sleep(0.5)  
 
     print("Juego terminado")
 

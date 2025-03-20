@@ -10,7 +10,7 @@ class Renderer:
         pygame.display.set_caption("Strategy Game")
     
     def draw_board(self, units):
-        self.screen.fill((255, 255, 255))  # Fondo blanco
+        self.screen.fill((255, 255, 255)) 
         
         # Dibujar cuadrícula
         for x in range(self.board_size[0]):
@@ -20,7 +20,7 @@ class Renderer:
         
         # Dibujar unidades
         for unit in units:
-            color = (0, 0, 255) if unit.team == 0 else (255, 0, 0)  # Azul para equipo 0, Rojo para equipo 1
+            color = (0, 0, 255) if unit.team == 0 else (255, 0, 0) 
             unit_rect = pygame.Rect(
                 unit.position[0] * self.cell_width, 
                 unit.position[1] * self.cell_height, 

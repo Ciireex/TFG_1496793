@@ -16,15 +16,15 @@ class Board:
 
         # Verifica si el movimiento está dentro del tablero
         if not (0 <= new_x < self.size[0] and 0 <= new_y < self.size[1]):
-            return False  # Movimiento inválido
+            return False 
 
         # Verifica si la casilla de destino está libre
         if self.grid[new_x, new_y] == 0:
-            self.grid[x, y] = 0  # Vacía la casilla anterior
+            self.grid[x, y] = 0 
             unit.move(new_pos)
-            self.grid[new_x, new_y] = 1  # Marca la nueva casilla como ocupada
+            self.grid[new_x, new_y] = 1 
             return True
-        return False  # Movimiento inválido (casilla ocupada)
+        return False  
 
     def is_valid_move(self, new_pos):
         x, y = new_pos
