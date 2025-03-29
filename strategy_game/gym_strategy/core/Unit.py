@@ -1,42 +1,47 @@
 class Unit:
-    def __init__(self, unit_type, position, team, movement_range, attack_range, attack_damage):
+    def __init__(self, unit_type, position, team):
         self.unit_type = unit_type  # "Soldier", "Archer", "Knight"
-        self.position = position  
-        self.team = team 
+        self.position = position  # (x, y)
+        self.team = team  # 0 o 1
         self.health = 100
-        self.movement_range = movement_range  
-        self.attack_range = attack_range  
-        self.attack_damage = attack_damage  
+        self.movement = 2  # Por defecto
 
-    def move(self, new_position, board_size):
-        x, y = self.position
-        new_x, new_y = new_position
-
-        if (new_x != x and new_y != y) or abs(new_x - x) > self.movement_range or abs(new_y - y) > self.movement_range:
-            return False  
-
-        if 0 <= new_x < board_size[0] and 0 <= new_y < board_size[1]:
-            self.position = new_position
-            return True
-        return False 
+    def move(self, new_position):
+        self.position = new_position
 
     def attack(self, other_unit):
-        x, y = self.position
-        ox, oy = other_unit.position
+        if other_unit:
+            other_unit.health -= self.get_attack_damage()
 
-        if abs(x - ox) + abs(y - oy) <= self.attack_range:
-            other_unit.health -= self.attack_damage
-            return True
-        return False  
+    def get_attack_damage(self):
+        return 20  # Daño por defecto
+
+    def is_alive(self):
+        return self.health > 0
+
 
 class Soldier(Unit):
     def __init__(self, position, team):
-        super().__init__("Soldier", position, team, movement_range=2, attack_range=1, attack_damage=25)
+        super().__init__("Soldier", position, team)
+        self.movement = 2
+
+    def get_attack_damage(self):
+        return 25
+
 
 class Archer(Unit):
     def __init__(self, position, team):
-        super().__init__("Archer", position, team, movement_range=3, attack_range=3, attack_damage=15)
+        super().__init__("Archer", position, team)
+        self.movement = 3
+
+    def get_attack_damage(self):
+        return 15
+
 
 class Knight(Unit):
     def __init__(self, position, team):
-        super().__init__("Knight", position, team, movement_range=4, attack_range=1, attack_damage=30)
+        super().__init__("Knight", position, team)
+        self.movement = 4
+
+    def get_attack_damage(self):
+        return 30

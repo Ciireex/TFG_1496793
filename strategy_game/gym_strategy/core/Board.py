@@ -1,7 +1,7 @@
 import numpy as np
 
 class Board:
-    def __init__(self, size=(6, 4)):
+    def __init__(self, size=(10, 10)):
         self.size = size
         self.grid = np.zeros(size)  # 0: vacío, 1: ocupado
         self.units = []
@@ -11,21 +11,15 @@ class Board:
         self.grid[unit.position] = 1
 
     def move_unit(self, unit, new_pos):
-        x, y = unit.position
-        new_x, new_y = new_pos
-
-        # Verifica si el movimiento está dentro del tablero
-        if not (0 <= new_x < self.size[0] and 0 <= new_y < self.size[1]):
-            return False 
-
-        # Verifica si la casilla de destino está libre
-        if self.grid[new_x, new_y] == 0:
-            self.grid[x, y] = 0 
+        if self.grid[new_pos] == 0:  # Solo se mueve si la casilla está libre
+            self.grid[unit.position] = 0
             unit.move(new_pos)
-            self.grid[new_x, new_y] = 1 
-            return True
-        return False  
+            self.grid[new_pos] = 1
 
-    def is_valid_move(self, new_pos):
-        x, y = new_pos
-        return (0 <= x < self.size[0]) and (0 <= y < self.size[1]) and self.grid[x, y] == 0
+    def is_occupied(self, pos):
+        """Devuelve True si hay una unidad en la posición dada."""
+        return any(u.position == pos for u in self.units)
+
+    def is_valid_move(self, pos):
+        x, y = pos
+        return 0 <= x < self.size[0] and 0 <= y < self.size[1] and not self.is_occupied(pos)
