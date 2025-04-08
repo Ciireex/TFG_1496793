@@ -3,23 +3,23 @@ import time
 import random
 from stable_baselines3 import PPO
 from gym_strategy.envs.StrategyEnv import StrategyEnv
+from gym_strategy.utils.HeuristicAgent import HeuristicAgent 
 
 # ⚙️ Configuración
-MODEL_PATH_0 = "models/ppo_0"
-MODEL_PATH_1 = "models/ppo_0"  # Puedes cambiarlo si quieres comparar dos modelos distintos
-SLEEP_TIME = 0.4  # segundos por paso
-USE_SEED = False  # Cambia a True si quieres una partida reproducible
-FIXED_SEED = 1234  # Semilla fija si USE_SEED = True
+MODEL_PATH = "models/ppo_0"
+SLEEP_TIME = 0.4
+USE_SEED = False
+FIXED_SEED = 1234
+RL_TEAM = 0  # Cambia a 1 si quieres que la heurística sea el equipo 0
 
-# 🎮 Cargar modelos
-print("🎮 Cargando modelos...")
-model_0 = PPO.load(MODEL_PATH_0)
-model_1 = PPO.load(MODEL_PATH_1)
+# 🎮 Cargar modelo entrenado
+print("🎮 Cargando modelo RL...")
+model = PPO.load(MODEL_PATH)
 
 # 🌍 Crear entorno
 env = StrategyEnv()
 
-# 🔁 Semilla aleatoria o fija
+# 🔁 Semilla
 if USE_SEED:
     obs, _ = env.reset(seed=FIXED_SEED)
     print(f"🔁 Semilla usada en reset: {FIXED_SEED}")
@@ -27,6 +27,9 @@ else:
     seed = random.randint(0, 9999)
     obs, _ = env.reset(seed=seed)
     print(f"🔁 Semilla usada en reset: {seed}")
+
+# 🧠 Crear agente heurístico
+heuristic_agent = HeuristicAgent(team=1 - RL_TEAM)
 
 terminated = False
 truncated = False
@@ -36,10 +39,10 @@ turn_count = 0
 while not (terminated or truncated):
     current_team = env.current_turn
 
-    if current_team == 0:
-        action, _ = model_0.predict(obs, deterministic=False)
+    if current_team == RL_TEAM:
+        action, _ = model.predict(obs, deterministic=False)
     else:
-        action, _ = model_1.predict(obs, deterministic=False)
+        action = heuristic_agent.get_action(obs)
 
     obs, reward, terminated, truncated, info = env.step(action)
     time.sleep(SLEEP_TIME)

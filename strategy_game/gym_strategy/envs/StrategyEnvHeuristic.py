@@ -4,9 +4,10 @@ from gymnasium import spaces
 from gym_strategy.core.Board import Board
 from gym_strategy.core.Unit import Soldier
 from gym_strategy.core.Renderer import Renderer
+from gym_strategy.utils.HeuristicAgent import HeuristicAgent 
 import random
 
-class StrategyEnv(gym.Env):
+class StrategyEnvHeuristic(gym.Env):
     def __init__(self):
         super().__init__()
         self.rows, self.cols = 6, 4
@@ -21,6 +22,8 @@ class StrategyEnv(gym.Env):
         self.max_turns = 50
         self.no_progress_turns = 0
 
+        self.heuristic_agent = HeuristicAgent(team=1)
+
         self.action_space = spaces.MultiDiscrete([5, 4, 2])
         self.observation_space = spaces.Box(
             low=np.array([[[-1.0, 0.0, 0.0, 0.0]] * self.cols] * self.rows, dtype=np.float32),
@@ -31,6 +34,9 @@ class StrategyEnv(gym.Env):
         self.reset()
 
     def step(self, action):
+        if self.current_turn == 1:
+            action = self.heuristic_agent.get_action(self._get_obs())
+
         move_dist, direction, sec_action = action
 
         if not self.turn_units or self.unit_index >= len(self.turn_units):
@@ -38,52 +44,33 @@ class StrategyEnv(gym.Env):
 
         if not self.turn_units:
             winner = 1 - self.current_turn
-            print(f"🏍️ ¡El equipo {winner} ha ganado! (el equipo {self.current_turn} no tiene unidades)")
             return self._get_obs(), -40, True, False, {}
 
         unit = self.turn_units[self.unit_index]
         reward = -0.1
-        print(f"🔸 {unit.unit_type} del equipo {unit.team} en {unit.position} → mueve {move_dist} hacia {direction}, acción {sec_action}")
 
-        # Distancia antes de mover
         before_move_dist = self.closest_enemy_distance(unit)
-
         move_result = self.move_unit(unit, move_dist, direction)
         reward += move_result
 
-        # Distancia después
         after_move_dist = self.closest_enemy_distance(unit)
         if after_move_dist < before_move_dist:
-            reward += 1.0  # Bonus por acercarse
+            reward += 1.0
 
         if sec_action == 1:
-            # ¿Había enemigos cerca?
             enemy_nearby = any(
                 abs(unit.position[0] - u.position[0]) + abs(unit.position[1] - u.position[1]) == 1
-                and u.team != unit.team
-                for u in self.units
+                and u.team != unit.team for u in self.units
             )
-
-            if not enemy_nearby:
-                print("⚠️ Ataque al aire SIN enemigos adyacentes.")
-
             attack_result = self.try_attack(unit)
             reward += attack_result
-
-            # Penalización fuerte por atacar sin éxito
             if attack_result <= 0:
                 reward -= 5
                 if not enemy_nearby:
-                    reward -= 2  # Penaliza aún más si ni siquiera había razón
+                    reward -= 2
         else:
-            # Si decide no atacar y no hay enemigos cerca, pequeño refuerzo
             if self.closest_enemy_distance(unit) > 1:
                 reward += 0.1
-
-        if reward > 1:
-            self.no_progress_turns = 0
-        else:
-            self.no_progress_turns += 1
 
         self.unit_index += 1
         if self.unit_index >= len(self.turn_units):
@@ -91,19 +78,16 @@ class StrategyEnv(gym.Env):
             self.current_turn = 1 - self.current_turn
             self.turn_units = [u for u in self.units if u.team == self.current_turn]
             self.turn_count += 1
-            print(f"🔄 Cambio de turno: Ahora juega el equipo {self.current_turn}.")
 
         self.render()
 
         terminated = self.check_game_over()
         if terminated:
             winner = 1 - self.current_turn
-            print(f"🏍️ ¡El equipo {winner} ha ganado!")
             reward += 100 if unit.team == winner else -40
 
         truncated = self.turn_count >= self.max_turns or self.no_progress_turns >= 12
         if truncated:
-            print("⏱️ Fin por turnos o falta de progreso. Nadie ha ganado.")
             reward -= 20
 
         return self._get_obs(), reward, terminated, truncated, {}
@@ -141,12 +125,8 @@ class StrategyEnv(gym.Env):
                         target.health -= 34
                         if target.health <= 0:
                             self.units.remove(target)
-                            print(f"☠️ {unit.unit_type} eliminó a un enemigo en {(tx, ty)}")
-                            print(f"📅 Quedan {sum(u.team == 0 for u in self.units)} vs {sum(u.team == 1 for u in self.units)} unidades.")
                             return 30
-                        print(f"🎯 {unit.unit_type} dañó a un enemigo en {(tx, ty)}")
                         return 10
-        print(f"❌ {unit.unit_type} no encontró enemigos para atacar.")
         return -1
 
     def closest_enemy_distance(self, unit):
@@ -176,16 +156,14 @@ class StrategyEnv(gym.Env):
 
         self.board = Board(size=(self.rows, self.cols))
         self.units = [Soldier(pos, team=0) for pos in team0_positions] + \
-                        [Soldier(pos, team=1) for pos in team1_positions]
+                     [Soldier(pos, team=1) for pos in team1_positions]
         for unit in self.units:
             self.board.add_unit(unit)
 
-        # 🎲 Turno inicial aleatorio
         self.current_turn = random.choice([0, 1])
         self.unit_index = 0
         self.turn_units = [u for u in self.units if u.team == self.current_turn]
 
-        print(f"🔁 Semilla usada en reset: {seed if seed is not None else 'aleatoria'} — Empieza el equipo {self.current_turn}")
         return self._get_obs(), {}
 
     def render(self, mode="human"):

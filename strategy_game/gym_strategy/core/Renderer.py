@@ -25,14 +25,27 @@ class Renderer:
         # Dibujar unidades
         for unit in units:
             ux, uy = unit.position
-            rect = pygame.Rect(
-                ux * cell_width + 5,
-                uy * cell_height + 5,
+            x_pix = ux * cell_width
+            y_pix = uy * cell_height
+
+            unit_rect = pygame.Rect(
+                x_pix + 5,
+                y_pix + 5,
                 cell_width - 10,
                 cell_height - 10
             )
             color = (0, 0, 255) if unit.team == 0 else (255, 0, 0)
-            pygame.draw.rect(self.screen, color, rect)
+            pygame.draw.rect(self.screen, color, unit_rect)
+
+            # Dibujar barra de vida
+            max_hp = 100
+            hp_ratio = max(0, unit.health / max_hp)
+            bar_width = cell_width - 10
+            bar_height = 5
+            bar_color = (0, 200, 0) if hp_ratio > 0.5 else (255, 200, 0) if hp_ratio > 0.25 else (200, 0, 0)
+
+            pygame.draw.rect(self.screen, (100, 100, 100), (x_pix + 5, y_pix, bar_width, bar_height))  # fondo
+            pygame.draw.rect(self.screen, bar_color, (x_pix + 5, y_pix, bar_width * hp_ratio, bar_height))  # vida
 
         pygame.display.flip()
 
