@@ -28,14 +28,23 @@ class Renderer:
             x_pix = ux * cell_width
             y_pix = uy * cell_height
 
-            unit_rect = pygame.Rect(
-                x_pix + 5,
-                y_pix + 5,
-                cell_width - 10,
-                cell_height - 10
-            )
             color = (0, 0, 255) if unit.team == 0 else (255, 0, 0)
-            pygame.draw.rect(self.screen, color, unit_rect)
+
+            if unit.unit_type == "Archer":
+                # Dibujar círculo para arquero
+                center_x = x_pix + cell_width // 2
+                center_y = y_pix + cell_height // 2
+                radius = min(cell_width, cell_height) // 2 - 5
+                pygame.draw.circle(self.screen, color, (center_x, center_y), radius)
+            else:
+                # Dibujar rectángulo para otras unidades
+                unit_rect = pygame.Rect(
+                    x_pix + 5,
+                    y_pix + 5,
+                    cell_width - 10,
+                    cell_height - 10
+                )
+                pygame.draw.rect(self.screen, color, unit_rect)
 
             # Dibujar barra de vida
             max_hp = 100
