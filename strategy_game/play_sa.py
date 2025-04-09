@@ -2,24 +2,24 @@ import os
 import time
 import random
 from stable_baselines3 import PPO
-from gym_strategy.envs.StrategyEnvSA import StrategyEnvSA  # 👈 Entorno actualizado
+from gym_strategy.envs.StrategyEnvSA import StrategyEnvSA  # Usamos el entorno actualizado con debilidades
 
-# ⚙️ Configuración
-MODEL_PATH_0 = "models/ppo_sa"
-MODEL_PATH_1 = "models/ppo_sa"  # Puedes cambiarlo si quieres comparar dos modelos distintos
-SLEEP_TIME = 0.4  # segundos por paso
-USE_SEED = False  # Cambia a True si quieres una partida reproducible
-FIXED_SEED = 1234  # Semilla fija si USE_SEED = True
+# Configuración
+MODEL_PATH_0 = "models/ppo_sa"  # Modelo del equipo 0
+MODEL_PATH_1 = "models/ppo_sa"  # Modelo del equipo 1 
+SLEEP_TIME = 0.4                # Tiempo de espera entre turnos para poder seguir la partida visualmente
+USE_SEED = False                # Aleatoriedad de posición inicial o no
+FIXED_SEED = 1234              # Semilla fija 
 
-# 🎮 Cargar modelos
-print("🎮 Cargando modelos...")
+# Cargamos modelos 
+print("Cargando modelos...")
 model_0 = PPO.load(MODEL_PATH_0)
 model_1 = PPO.load(MODEL_PATH_1)
 
-# 🌍 Crear entorno
+# Creamos el entorno
 env = StrategyEnvSA()
 
-# 🔁 Semilla aleatoria o fija
+# Inicializamos el entorno con semilla fija o aleatoria
 if USE_SEED:
     obs, _ = env.reset(seed=FIXED_SEED)
     print(f"🔁 Semilla usada en reset: {FIXED_SEED}")
@@ -28,11 +28,12 @@ else:
     obs, _ = env.reset(seed=seed)
     print(f"🔁 Semilla usada en reset: {seed}")
 
+# Variables de control del bucle
 terminated = False
 truncated = False
 turn_count = 0
 
-# ⚔️ Simulación por turnos
+# Bucle de juego por turnos hasta que alguien gane o se agote el tiempo
 while not (terminated or truncated):
     current_team = env.current_turn
 
@@ -41,8 +42,9 @@ while not (terminated or truncated):
     else:
         action, _ = model_1.predict(obs, deterministic=False)
 
-    obs, reward, terminated, truncated, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action) # Ejecutamos la acción y obtenemos la nueva observación y el estado del entorno
+
     time.sleep(SLEEP_TIME)
     turn_count += 1
 
-print("🏁 Partida finalizada.")
+print("!!Partida finalizada.")

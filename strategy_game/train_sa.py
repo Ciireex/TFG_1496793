@@ -15,7 +15,7 @@ def make_env():
 if __name__ == "__main__":
     NUM_ENVS = 8
     TIMESTEPS = 1_000_000
-    MODEL_NAME = "ppo_sa"
+    MODEL_NAME = "ppo_sa_1"
     MODEL_PATH = f"models/{MODEL_NAME}"
 
     # 🏁 Checkpoints automáticos
