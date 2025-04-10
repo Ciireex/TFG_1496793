@@ -19,7 +19,7 @@ if __name__ == "__main__":
         save_vecnormalize=True
     )
 
-    # Entorno no paralelo (solo se entrena el equipo 0)
+    # DummyVecEnv para entorno no paralelo 
     env = DummyVecEnv([lambda: StrategyEnvHeuristic()])
 
     # Verificación de entorno (opcional)
