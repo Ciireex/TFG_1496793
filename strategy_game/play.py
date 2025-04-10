@@ -4,35 +4,35 @@ import random
 from stable_baselines3 import PPO
 from gym_strategy.envs.StrategyEnv import StrategyEnv
 
-# ⚙️ Configuración
+# Configuración
 MODEL_PATH_0 = "models/ppo_0"
-MODEL_PATH_1 = "models/ppo_0"  # Puedes cambiarlo si quieres comparar dos modelos distintos
+MODEL_PATH_1 = "models/ppo_0"  
 SLEEP_TIME = 0.4  # segundos por paso
-USE_SEED = False  # Cambia a True si quieres una partida reproducible
-FIXED_SEED = 1234  # Semilla fija si USE_SEED = True
+USE_SEED = False 
+FIXED_SEED = 1234  
 
-# 🎮 Cargar modelos
+# Cargar modelos
 print("🎮 Cargando modelos...")
 model_0 = PPO.load(MODEL_PATH_0)
 model_1 = PPO.load(MODEL_PATH_1)
 
-# 🌍 Crear entorno
+# Crear entorno
 env = StrategyEnv()
 
-# 🔁 Semilla aleatoria o fija
+# Semilla aleatoria o fija
 if USE_SEED:
     obs, _ = env.reset(seed=FIXED_SEED)
-    print(f"🔁 Semilla usada en reset: {FIXED_SEED}")
+    print(f"Semilla usada en reset: {FIXED_SEED}")
 else:
     seed = random.randint(0, 9999)
     obs, _ = env.reset(seed=seed)
-    print(f"🔁 Semilla usada en reset: {seed}")
+    print(f"Semilla usada en reset: {seed}")
 
 terminated = False
 truncated = False
 turn_count = 0
 
-# ⚔️ Simulación por turnos
+# Simulación por turnos
 while not (terminated or truncated):
     current_team = env.current_turn
 
@@ -45,4 +45,4 @@ while not (terminated or truncated):
     time.sleep(SLEEP_TIME)
     turn_count += 1
 
-print("🏁 Partida finalizada.")
+print("Partida finalizada.")
