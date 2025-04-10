@@ -5,7 +5,6 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 from gym_strategy.envs.StrategyEnvSA import StrategyEnvSA
 
-# Crear entorno vectorizado
 def make_env():
     def _init():
         env = StrategyEnvSA()
@@ -27,7 +26,7 @@ if __name__ == "__main__":
         save_vecnormalize=True
     )
 
-    # Vectorizar entornos
+    # Vectorizar entornos paralelos (8)
     env = SubprocVecEnv([make_env() for _ in range(NUM_ENVS)])
 
     # Verificar entorno
