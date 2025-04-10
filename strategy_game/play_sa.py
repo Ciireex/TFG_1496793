@@ -22,11 +22,11 @@ env = StrategyEnvSA()
 # Inicializamos el entorno con semilla fija o aleatoria
 if USE_SEED:
     obs, _ = env.reset(seed=FIXED_SEED)
-    print(f"🔁 Semilla usada en reset: {FIXED_SEED}")
+    print(f"Semilla usada en reset: {FIXED_SEED}")
 else:
     seed = random.randint(0, 9999)
     obs, _ = env.reset(seed=seed)
-    print(f"🔁 Semilla usada en reset: {seed}")
+    print(f"Semilla usada en reset: {seed}")
 
 # Variables de control del bucle
 terminated = False
