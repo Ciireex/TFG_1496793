@@ -10,7 +10,7 @@ if __name__ == "__main__":
     MODEL_NAME = "ppo_vs_heuristic"
     MODEL_PATH = f"models/{MODEL_NAME}"
 
-    # 🏁 Checkpoints automáticos
+    # Checkpoints automáticos
     checkpoint_callback = CheckpointCallback(
         save_freq=50_000,  # Frecuencia de guardado
         save_path=f"./models/{MODEL_NAME}_checkpoints",
@@ -19,15 +19,15 @@ if __name__ == "__main__":
         save_vecnormalize=True
     )
 
-    # 🌍 Entorno no paralelo (solo se entrena el equipo 0)
+    # Entorno no paralelo (solo se entrena el equipo 0)
     env = DummyVecEnv([lambda: StrategyEnvHeuristic()])
 
-    # ✅ Verificación de entorno (opcional)
+    # Verificación de entorno (opcional)
     check_env(StrategyEnvHeuristic(), warn=True)
 
-    # 🚀 Cargar o crear modelo
+    # Cargar o crear modelo
     if os.path.exists(MODEL_PATH + ".zip"):
-        print(f"📦 Cargando modelo desde {MODEL_PATH}.zip")
+        print(f" Cargando modelo desde {MODEL_PATH}.zip")
         model = PPO.load(
             MODEL_PATH,
             tensorboard_log="./tensorboard_logs",
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         )
         model.set_env(env)
     else:
-        print("🎯 Entrenando desde cero contra IA heurística")
+        print("Entrenando desde cero contra IA heurística")
         model = PPO(
             "MlpPolicy",
             env=env,
@@ -44,13 +44,13 @@ if __name__ == "__main__":
             device="auto"
         )
 
-    # 🔁 Entrenar
+    # Entrenar
     model.learn(
         total_timesteps=TIMESTEPS,
         callback=checkpoint_callback
     )
 
-    # 💾 Guardar modelo final
+    # Guardar modelo final
     os.makedirs("models", exist_ok=True)
     model.save(MODEL_PATH)
-    print(f"✅ Modelo guardado en {MODEL_PATH}.zip")
+    print(f" Modelo guardado en {MODEL_PATH}.zip")
