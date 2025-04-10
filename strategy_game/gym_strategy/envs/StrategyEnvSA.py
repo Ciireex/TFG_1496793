@@ -23,7 +23,7 @@ class StrategyEnvSA(gym.Env):
         self.no_progress_turns = 0
 
         # Espacios de acción y observación
-        self.action_space = spaces.MultiDiscrete([5, 4, 2])  # (distancia movimiento, dirección, acción secundaria)
+        self.action_space = spaces.MultiDiscrete([5, 4, 2])  # (distancia movimiento, dirección, atacar)
         self.observation_space = spaces.Box(
             low=np.array([[[-1.0, 0.0, 0.0, 0.0]] * self.cols] * self.rows, dtype=np.float32),
             high=np.array([[[1.0, 100.0, 3.0, 1.0]] * self.cols] * self.rows, dtype=np.float32),
@@ -61,7 +61,7 @@ class StrategyEnvSA(gym.Env):
             elif after == 1:
                 reward -= 2.0  # demasiado cerca
 
-        # Ejecutar acción secundaria (ej. ataque)
+        # Ejecutar ataque
         if sec_action == 1:
             attack_result = self.try_attack(unit)
             reward += attack_result
