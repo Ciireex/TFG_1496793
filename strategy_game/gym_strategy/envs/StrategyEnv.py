@@ -38,12 +38,12 @@ class StrategyEnv(gym.Env):
 
         if not self.turn_units:
             winner = 1 - self.current_turn
-            print(f"🏍️ ¡El equipo {winner} ha ganado! (el equipo {self.current_turn} no tiene unidades)")
+            print(f"¡El equipo {winner} ha ganado! (el equipo {self.current_turn} no tiene unidades)")
             return self._get_obs(), -40, True, False, {}
 
         unit = self.turn_units[self.unit_index]
         reward = -0.1
-        print(f"🔸 {unit.unit_type} del equipo {unit.team} en {unit.position} → mueve {move_dist} hacia {direction}, acción {sec_action}")
+        print(f"{unit.unit_type} del equipo {unit.team} en {unit.position} → mueve {move_dist} hacia {direction}, acción {sec_action}")
 
         # Distancia antes de mover
         before_move_dist = self.closest_enemy_distance(unit)
@@ -57,7 +57,7 @@ class StrategyEnv(gym.Env):
             reward += 1.0  # Bonus por acercarse
 
         if sec_action == 1:
-            # ¿Había enemigos cerca?
+            # Había enemigos cerca?
             enemy_nearby = any(
                 abs(unit.position[0] - u.position[0]) + abs(unit.position[1] - u.position[1]) == 1
                 and u.team != unit.team
@@ -65,7 +65,7 @@ class StrategyEnv(gym.Env):
             )
 
             if not enemy_nearby:
-                print("⚠️ Ataque al aire SIN enemigos adyacentes.")
+                print("Ataque al aire SIN enemigos adyacentes.")
 
             attack_result = self.try_attack(unit)
             reward += attack_result
@@ -91,19 +91,19 @@ class StrategyEnv(gym.Env):
             self.current_turn = 1 - self.current_turn
             self.turn_units = [u for u in self.units if u.team == self.current_turn]
             self.turn_count += 1
-            print(f"🔄 Cambio de turno: Ahora juega el equipo {self.current_turn}.")
+            print(f"Cambio de turno: Ahora juega el equipo {self.current_turn}.")
 
         self.render()
 
         terminated = self.check_game_over()
         if terminated:
             winner = 1 - self.current_turn
-            print(f"🏍️ ¡El equipo {winner} ha ganado!")
+            print(f"¡El equipo {winner} ha ganado!")
             reward += 100 if unit.team == winner else -40
 
         truncated = self.turn_count >= self.max_turns or self.no_progress_turns >= 12
         if truncated:
-            print("⏱️ Fin por turnos o falta de progreso. Nadie ha ganado.")
+            print("Fin por turnos o falta de progreso. Nadie ha ganado.")
             reward -= 20
 
         return self._get_obs(), reward, terminated, truncated, {}
@@ -141,12 +141,12 @@ class StrategyEnv(gym.Env):
                         target.health -= 34
                         if target.health <= 0:
                             self.units.remove(target)
-                            print(f"☠️ {unit.unit_type} eliminó a un enemigo en {(tx, ty)}")
-                            print(f"📅 Quedan {sum(u.team == 0 for u in self.units)} vs {sum(u.team == 1 for u in self.units)} unidades.")
+                            print(f"{unit.unit_type} eliminó a un enemigo en {(tx, ty)}")
+                            print(f"Quedan {sum(u.team == 0 for u in self.units)} vs {sum(u.team == 1 for u in self.units)} unidades.")
                             return 30
-                        print(f"🎯 {unit.unit_type} dañó a un enemigo en {(tx, ty)}")
+                        print(f"{unit.unit_type} dañó a un enemigo en {(tx, ty)}")
                         return 10
-        print(f"❌ {unit.unit_type} no encontró enemigos para atacar.")
+        print(f"{unit.unit_type} no encontró enemigos para atacar.")
         return -1
 
     def closest_enemy_distance(self, unit):
@@ -180,12 +180,12 @@ class StrategyEnv(gym.Env):
         for unit in self.units:
             self.board.add_unit(unit)
 
-        # 🎲 Turno inicial aleatorio
+        # Turno inicial aleatorio
         self.current_turn = random.choice([0, 1])
         self.unit_index = 0
         self.turn_units = [u for u in self.units if u.team == self.current_turn]
 
-        print(f"🔁 Semilla usada en reset: {seed if seed is not None else 'aleatoria'} — Empieza el equipo {self.current_turn}")
+        print(f"Semilla usada en reset: {seed if seed is not None else 'aleatoria'} — Empieza el equipo {self.current_turn}")
         return self._get_obs(), {}
 
     def render(self, mode="human"):
