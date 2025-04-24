@@ -10,7 +10,7 @@ class Renderer:
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption("Strategy Game")
 
-    def draw_board(self, units, capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
+    def draw_board(self, units, blocked_positions=None, capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
         self.screen.fill((255, 255, 255))  # Fondo blanco
 
         cell_width = self.width // self.board_size[0]
@@ -20,8 +20,9 @@ class Renderer:
             for y in range(self.board_size[1]):
                 rect = pygame.Rect(x * cell_width, y * cell_height, cell_width, cell_height)
 
-                # Punto de captura
-                if capture_point == (x, y):
+                if blocked_positions and (x, y) in blocked_positions:
+                    pygame.draw.rect(self.screen, (0, 0, 0), rect)  # bloqueado → negro
+                elif capture_point == (x, y):
                     pygame.draw.rect(self.screen, (255, 255, 150), rect)  # Amarillo claro
                     pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
@@ -37,7 +38,8 @@ class Renderer:
                         pygame.draw.rect(self.screen, bar_color, bar_rect)
                 else:
                     pygame.draw.rect(self.screen, (255, 255, 255), rect)  # blanco
-                    pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)  # bordes
+
+                pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)  # bordes
 
         # Dibujar unidades
         for unit in units:
@@ -46,9 +48,9 @@ class Renderer:
             y_pix = uy * cell_height
 
             color = (0, 0, 255) if unit.team == 0 else (255, 0, 0)
-
             margin = int(cell_width * 0.15)
-            if unit.unit_type == "Archer":
+
+            if hasattr(unit, 'unit_type') and unit.unit_type == "Archer":
                 center_x = x_pix + cell_width // 2
                 center_y = y_pix + cell_height // 2
                 radius = int(min(cell_width, cell_height) * 0.35)
