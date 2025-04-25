@@ -5,8 +5,8 @@ import random
 from gym_strategy.core.Unit import Soldier
 from collections import deque
 
-class StrategyEnv1vsDummyMiniGrid(gym.Env):
-    def __init__(self, mode='fixed'):
+class StrategyEnv1vsDummyRandomSpawn(gym.Env):
+    def __init__(self):
         super().__init__()
         self.board_size = (5, 5)
         self.max_turns = 50
@@ -15,12 +15,6 @@ class StrategyEnv1vsDummyMiniGrid(gym.Env):
         self.observation_space = spaces.Dict({
             "obs": spaces.Box(low=0, high=1, shape=(3, 5, 5), dtype=np.float32)
         })
-        self.mode = mode
-        self.preset_maps = [
-            {(1, 1), (2, 1), (3, 1), (1, 2), (3, 2), (1, 3), (2, 3), (3, 3)},
-            {(1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (1, 3), (2, 3), (3, 3)},
-            {(1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (1, 3), (3, 3)}
-        ]
         self.reset()
 
     def reset(self, seed=None, options=None):
@@ -33,24 +27,25 @@ class StrategyEnv1vsDummyMiniGrid(gym.Env):
         self.last_hit_success = False
         self.no_progress_steps = 0
         self.last_positions = deque(maxlen=3)
+        self.visited = set()
 
-        if self.mode == 'fixed':
-            self.blocked_positions = {
-                (1, 1), (2, 1), (3, 1),
-                (1, 2),         (3, 2),
-                (1, 3), (2, 3), (3, 3),
-            }
-        elif self.mode == 'preset':
-            self.blocked_positions = random.choice(self.preset_maps)
-        elif self.mode == 'random':
+        while True:
             all_positions = [(x, y) for x in range(self.board_size[0]) for y in range(self.board_size[1])]
-            num_blocks = random.randint(5, 10)
-            self.blocked_positions = set(random.sample(all_positions, num_blocks))
-        else:
-            raise ValueError("Invalid mode. Use 'fixed', 'preset', or 'random'.")
+            self.blocked_positions = set(random.sample(all_positions, random.randint(5, 10)))
 
-        self.units.append(Soldier(position=(0, 2), team=0))
-        self.units.append(Soldier(position=(4, 2), team=1))
+            # Elegir dos posiciones no bloqueadas y no iguales
+            free_positions = [pos for pos in all_positions if pos not in self.blocked_positions]
+            if len(free_positions) < 2:
+                continue
+
+            p1, p2 = random.sample(free_positions, 2)
+            if abs(p1[0] - p2[0]) + abs(p1[1] - p2[1]) < 2:
+                continue  # evitar que estén pegados
+
+            if self._has_path(p1, p2):
+                self.units.append(Soldier(position=p1, team=0))
+                self.units.append(Soldier(position=p2, team=1))
+                break
 
         return self._get_obs(), {}
 
@@ -75,10 +70,12 @@ class StrategyEnv1vsDummyMiniGrid(gym.Env):
         move_dirs = [(0, 0), (0, -1), (0, 1), (-1, 0), (1, 0)]
         dx, dy = move_dirs[move]
         new_pos = (me.position[0] + dx, me.position[1] + dy)
-        moved = False
+
         if self._valid_move(new_pos):
             me.move(new_pos)
-            moved = True
+            if me.position not in self.visited:
+                reward += 0.1
+                self.visited.add(me.position)
 
         dx, dy = move_dirs[attack]
         target_pos = (me.position[0] + dx, me.position[1] + dy)
@@ -90,7 +87,7 @@ class StrategyEnv1vsDummyMiniGrid(gym.Env):
             if enemy.health <= 0:
                 reward += 3.0
         elif attack != 0:
-            reward -= 0.05
+            reward -= 0.1
 
         if self.last_hit_success and not hit:
             reward -= 0.2
@@ -100,19 +97,19 @@ class StrategyEnv1vsDummyMiniGrid(gym.Env):
         if self.min_dist is None:
             self.min_dist = dist
         elif dist < self.min_dist:
-            reward += 0.5
+            reward += 0.3
             self.min_dist = dist
             self.no_progress_steps = 0
         else:
             self.no_progress_steps += 1
 
-        if self.no_progress_steps >= 5:
-            reward -= 0.5
+        if self.no_progress_steps >= 6:
+            reward -= 0.3
             self.no_progress_steps = 0
 
         self.last_positions.append(me.position)
         if len(self.last_positions) == 3 and len(set(self.last_positions)) == 1:
-            reward -= 0.3  # penaliza por bucle de posición
+            reward -= 0.3
 
         done = False
         if enemy.health <= 0:
@@ -139,3 +136,18 @@ class StrategyEnv1vsDummyMiniGrid(gym.Env):
         if any(u.position == pos for u in self.units):
             return False
         return True
+
+    def _has_path(self, start, goal):
+        visited = set()
+        queue = deque([start])
+        while queue:
+            x, y = queue.popleft()
+            if (x, y) == goal:
+                return True
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = x + dx, y + dy
+                if (0 <= nx < self.board_size[0] and 0 <= ny < self.board_size[1] and
+                    (nx, ny) not in self.blocked_positions and (nx, ny) not in visited):
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+        return False

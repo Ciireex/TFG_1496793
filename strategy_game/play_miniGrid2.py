@@ -1,16 +1,16 @@
 import time
 from stable_baselines3 import PPO
-from gym_strategy.envs.StrategyEnv1vsDummyRandom import StrategyEnv1vsDummyRandom
+from gym_strategy.envs.StrategyEnvMiniGrid2 import StrategyEnv1vsDummyRandomSpawn
 from gym_strategy.core.Renderer import Renderer
 
-# Cargar el modelo entrenado
-model = PPO.load("ppo_random_v2")  # o el nombre del modelo que hayas entrenado
+# Cargar modelo entrenado
+model = PPO.load("ppo_spawn_v1")  # cambia si usas otro nombre
 
-# Crear entorno aleatorio
-env = StrategyEnv1vsDummyRandom()
+# Crear entorno
+env = StrategyEnv1vsDummyRandomSpawn()
 obs, _ = env.reset()
 
-# Render
+# Inicializar renderizador
 renderer = Renderer(width=600, height=600, board_size=(5, 5))
 DIRECTIONS = ["quieto", "arriba", "abajo", "izquierda", "derecha"]
 
@@ -19,7 +19,6 @@ while not terminated:
     action, _ = model.predict(obs, deterministic=True)
     move, atk = action
     me = env.units[env.turn]
-
     print(f"IA en {me.position} → Mueve: {DIRECTIONS[move]}, Ataca: {DIRECTIONS[atk]}")
 
     obs, reward, terminated, truncated, info = env.step(action)
