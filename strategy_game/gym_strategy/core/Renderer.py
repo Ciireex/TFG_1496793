@@ -11,7 +11,9 @@ class Renderer:
         pygame.display.set_caption("Strategy Game")
 
     def draw_board(self, units, blocked_positions=None,
-                   capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
+               capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
+
+        pygame.event.pump()  # 🔥 Procesar eventos para evitar congelamiento
 
         self.screen.fill((255, 255, 255))  # fondo blanco
         cell_width = self.width // self.board_size[0]
@@ -24,29 +26,30 @@ class Renderer:
 
                 # Obstáculos
                 if blocked_positions and (x, y) in blocked_positions:
-                    pygame.draw.rect(self.screen, (0, 0, 0), rect)
+                    pygame.draw.rect(self.screen, (100, 100, 100), rect)  # Gris oscuro
+                    pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)  # Borde negro fino
                     continue
 
                 # Punto de captura
                 if capture_point == (x, y):
-                    pygame.draw.rect(self.screen, (255, 255, 150), rect)  # amarillo claro
+                    pygame.draw.rect(self.screen, (255, 255, 100), rect)  # Amarillo fuerte
 
                     if capture_progress is not None:
-                        # Detectar si es dict o int
                         progress = capture_progress if isinstance(capture_progress, int) else capture_progress.get(capturing_team, 0)
                         filled = int((progress / capture_max) * cell_height)
                         bar_color = (0, 0, 255) if capturing_team == 0 else (255, 0, 0)
                         bar_rect = pygame.Rect(
-                            x * cell_width + cell_width // 4,
+                            x * cell_width + cell_width // 3,
                             (y + 1) * cell_height - filled,
-                            cell_width // 2,
+                            cell_width // 3,
                             filled
                         )
                         pygame.draw.rect(self.screen, bar_color, bar_rect)
                 else:
                     pygame.draw.rect(self.screen, (255, 255, 255), rect)
 
-                pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)  # bordes
+                # Bordes de todas las casillas
+                pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
         # Dibujar unidades
         for unit in units:
@@ -68,15 +71,15 @@ class Renderer:
             max_hp = 100
             hp_ratio = max(0, unit.health / max_hp)
             bar_width = cell_width - 2 * margin
-            bar_height = 5
+            bar_height = 6
             bar_x = x_pix + margin
-            bar_y = y_pix + 2
+            bar_y = y_pix + 4
             bar_color = (0, 200, 0) if hp_ratio > 0.5 else (255, 200, 0) if hp_ratio > 0.25 else (200, 0, 0)
-            pygame.draw.rect(self.screen, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height))
+            pygame.draw.rect(self.screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height))  # Fondo barra
             pygame.draw.rect(self.screen, bar_color, (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
 
         pygame.display.flip()
 
     def get_image(self):
         image = pygame.surfarray.array3d(self.screen)
-        return np.transpose(image, (1, 0, 2))
+        return np.transpose(image, (1, 0, 2))  # [ancho, alto, canal] -> [alto, ancho, canal]
