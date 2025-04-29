@@ -5,7 +5,7 @@ from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 
-from gym_strategy.envs.StrategyEnvDuel import StrategyEnvDuel
+from gym_strategy.envs.StrategyEnvDuel2vs2 import StrategyEnvDuel2v2
 
 # Función para aplicar la máscara de acciones válidas
 def mask_fn(env):
@@ -31,10 +31,10 @@ if __name__ == "__main__":
     freeze_support()
 
     # 1) Crear el entorno
-    base_env = StrategyEnvDuel()
+    base_env = StrategyEnvDuel2v2(training_mode="capture_only")  # 🔵 Primero solo aprenderá a capturar
     masked_env = ActionMasker(base_env, mask_fn)
 
-    # 2) Vectorizar (un solo entorno para empezar)
+    # 2) Vectorizar
     venv = DummyVecEnv([lambda: masked_env])
 
     # 3) Crear el modelo PPO con máscara
@@ -42,22 +42,22 @@ if __name__ == "__main__":
         policy="MlpPolicy",
         env=venv,
         verbose=1,
-        ent_coef=0.01,          # Incentiva menos la exploración aleatoria
-        learning_rate=1e-4,      # Velocidad de aprendizaje estándar
-        n_steps=4096,            # N pasos por actualización
-        batch_size=256,          # Tamaño del batch
-        clip_range=0.2,          # Rango de clip de PPO
+        ent_coef=0.005,
+        learning_rate=1e-4,
+        n_steps=4096,
+        batch_size=512,
+        clip_range=0.2,
         policy_kwargs=dict(
-            net_arch=[dict(pi=[128, 128], vf=[128, 128])]  # Red más grande para el duelo
+            net_arch=[dict(pi=[256, 256], vf=[256, 256])]
         ),
     )
 
     # 4) Entrenar el modelo
     model.learn(
-        total_timesteps=1_500_000,  # 🚀 Entrena 2 millones de pasos (puedes cambiarlo si quieres)
+        total_timesteps=1_000_000,  # 🚀 Entrenarlo bien para aprender capturar antes de meter combate
         callback=LogCallback(log_every=5000),
     )
 
     # 5) Guardar el modelo
-    model.save("ppo_duel_v2")
-    print("✅ Modelo guardado como 'ppo_duel_v2.zip'")
+    model.save("ppo_duel_2v2_v2")
+    print("✅ Modelo guardado como 'ppo_duel_2v2_v2.zip'")

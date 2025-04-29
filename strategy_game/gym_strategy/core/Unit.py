@@ -11,9 +11,10 @@ class Unit:
 
     def attack(self, other_unit):
         if other_unit:
-            other_unit.health -= self.get_attack_damage()
+            damage = self.get_attack_damage(other_unit)
+            other_unit.health -= damage
 
-    def get_attack_damage(self):
+    def get_attack_damage(self, other_unit):
         return 20  # Daño por defecto
 
     def is_alive(self):
@@ -25,8 +26,11 @@ class Soldier(Unit):
         super().__init__("Soldier", position, team)
         self.movement = 2
 
-    def get_attack_damage(self):
-        return 25
+    def get_attack_damage(self, other_unit):
+        if other_unit.unit_type == "Archer":
+            return 50  # Mata a un Archer en 2 golpes
+        else:
+            return 34  # Contra otro Soldier, 3 golpes para matar
 
 
 class Archer(Unit):
@@ -34,8 +38,8 @@ class Archer(Unit):
         super().__init__("Archer", position, team)
         self.movement = 3
 
-    def get_attack_damage(self):
-        return 15
+    def get_attack_damage(self, other_unit):
+        return 25  # Hace menos daño, necesita 4 golpes para matar cualquiera
 
 
 class Knight(Unit):
@@ -43,5 +47,5 @@ class Knight(Unit):
         super().__init__("Knight", position, team)
         self.movement = 4
 
-    def get_attack_damage(self):
-        return 30
+    def get_attack_damage(self, other_unit):
+        return 30  # No hemos cambiado nada de Knight de momento

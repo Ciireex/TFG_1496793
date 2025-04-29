@@ -17,7 +17,7 @@ if __name__ == "__main__":
     env = ActionMasker(base_env, mask_fn)
 
     # 2) Cargar el modelo
-    model = MaskablePPO.load("ppo_duel_v2")
+    model = MaskablePPO.load("ppo_duel_v5")
 
     # 3) Crear el renderer
     renderer = Renderer(width=600, height=600, board_size=(5, 5))

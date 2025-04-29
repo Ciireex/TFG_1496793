@@ -11,7 +11,7 @@ class Renderer:
         pygame.display.set_caption("Strategy Game")
 
     def draw_board(self, units, blocked_positions=None,
-               capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
+                   capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
 
         pygame.event.pump()  # 🔥 Procesar eventos para evitar congelamiento
 
@@ -35,7 +35,13 @@ class Renderer:
                     pygame.draw.rect(self.screen, (255, 255, 100), rect)  # Amarillo fuerte
 
                     if capture_progress is not None:
-                        progress = capture_progress if isinstance(capture_progress, int) else capture_progress.get(capturing_team, 0)
+                        if isinstance(capture_progress, int):
+                            progress = capture_progress
+                        elif isinstance(capture_progress, list):
+                            progress = capture_progress[capturing_team]
+                        else:
+                            progress = 0
+
                         filled = int((progress / capture_max) * cell_height)
                         bar_color = (0, 0, 255) if capturing_team == 0 else (255, 0, 0)
                         bar_rect = pygame.Rect(
@@ -53,21 +59,33 @@ class Renderer:
 
         # Dibujar unidades
         for unit in units:
+            if not unit.is_alive():
+                continue
+
             ux, uy = unit.position
             x_pix = ux * cell_width
             y_pix = uy * cell_height
             color = (0, 0, 255) if unit.team == 0 else (255, 0, 0)
             margin = int(cell_width * 0.15)
 
-            unit_rect = pygame.Rect(
-                x_pix + margin,
-                y_pix + margin,
-                cell_width - 2 * margin,
-                cell_height - 2 * margin
-            )
-            pygame.draw.rect(self.screen, color, unit_rect)
+            if unit.unit_type == "Soldier":
+                # Soldier ➔ cuadrado
+                unit_rect = pygame.Rect(
+                    x_pix + margin,
+                    y_pix + margin,
+                    cell_width - 2 * margin,
+                    cell_height - 2 * margin
+                )
+                pygame.draw.rect(self.screen, color, unit_rect)
 
-            # Barra de vida
+            elif unit.unit_type == "Archer":
+                # Archer ➔ círculo
+                center_x = x_pix + cell_width // 2
+                center_y = y_pix + cell_height // 2
+                radius = min(cell_width, cell_height) // 3
+                pygame.draw.circle(self.screen, color, (center_x, center_y), radius)
+
+            # Barra de vida encima
             max_hp = 100
             hp_ratio = max(0, unit.health / max_hp)
             bar_width = cell_width - 2 * margin
