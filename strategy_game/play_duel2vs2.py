@@ -1,78 +1,82 @@
 import time
 import numpy as np
+import pygame
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-from gym_strategy.envs.StrategyEnvDuel2vs2 import StrategyEnvDuel2vs2
-from gym_strategy.core.Renderer import Renderer  # Asegúrate de tener tu Renderer adaptado al tamaño nuevo
-
-# Función para aplicar la máscara de acciones válidas
-def mask_fn(env):
-    return env._get_action_mask()
+from gym_strategy.envs.StrategyEnvAdvance2v2 import StrategyEnvAdvance2v2
+from gym_strategy.core.Renderer import Renderer
 
 DIRECTIONS = [
     "quieto", "arriba", "abajo", "izquierda", "derecha",
     "atacar arriba", "atacar abajo", "atacar izquierda", "atacar derecha"
 ]
 
+# Función para aplicar la máscara
+def mask_fn(env):
+    return env._get_action_mask()
+
 if __name__ == "__main__":
-    # 1) Crear el entorno base
-    base_env = StrategyEnvDuel2vs2()
+    # 1) Crear entorno
+    base_env = StrategyEnvAdvance2v2()
     env = ActionMasker(base_env, mask_fn)
 
-    # 2) Cargar el modelo entrenado
-    model = MaskablePPO.load("ppo_duel_2v2")
+    # 2) Cargar modelo
+    model = MaskablePPO.load("ppo_advance2v2_final")
 
-    # 3) Crear el renderer
-    renderer = Renderer(width=800, height=600, board_size=(8, 6))  # Adaptado a tablero 8x6
+    # 3) Crear renderer
+    renderer = Renderer(width=960, height=400, board_size=(12, 5))
+
+    print("\n🎮 ¡Empieza la partida estilo Advance Wars!")
 
     while True:
         obs, info = env.reset()
         done = False
-        current_turn = 0  # Azul empieza
-
-        # 🛠️ Acceso al entorno real para dibujar
-        real_env = env.env
+        current_team = 0  # 0: azul, 1: rojo
+        turn = 0
 
         print("\n🌍 Nuevo mapa generado")
 
         while not done:
-            mask = info["action_mask"]
+            masks = info["action_mask"]
 
-            # 4) Predicción de acciones
-            actions, _ = model.predict(obs, deterministic=True, action_masks=mask)
+            # 4) Predecir acción de ambas unidades
+            actions, _ = model.predict(obs, deterministic=True, action_masks=masks)
+            actions = np.array(actions)
 
-            # 5) Mostrar qué acciones se han elegido
-            for i, action in enumerate(actions):
-                unit_type = real_env.units[i if current_turn % 2 == 0 else i+2].unit_type
-                print(f"Turno {current_turn} | {unit_type} elige: {DIRECTIONS[action]}")
+            # Mostrar acciones
+            for idx, action in enumerate(actions):
+                unit_type = "Soldier" if idx == 0 else "Archer"
+                player_color = "🔵 Azul" if current_team == 0 else "🔴 Rojo"
+                print(f"Turno {turn} | {player_color} - {unit_type} elige: {DIRECTIONS[action]}")
 
-            # 6) Ejecutar acciones
+            # 5) Ejecutar acciones
             obs, reward, done, truncated, info = env.step(actions)
 
-            # 7) Dibujar estado
+            # 6) Dibujar estado
+            real_env = env.env  # Acceso interno al entorno sin ActionMasker
             renderer.draw_board(
                 units=real_env.units,
                 blocked_positions=real_env.blocked_positions,
                 capture_point=real_env.capture_point,
                 capture_progress=real_env.capture_progress,
                 capture_max=real_env.capture_turns_required,
-                capturing_team=current_turn % 2
+                capturing_team=current_team
             )
 
-            time.sleep(0.3)  # Pequeña pausa para ver los movimientos
+            if not done:
+                current_team = 1 - current_team  # Cambiar equipo
+                turn += 1
 
-            current_turn += 1
+            time.sleep(0.4)  # 🔵 Espera para ver las jugadas
 
-        # Mostrar resultado
+        # Resultado
         if reward > 0:
-            print("\n🏆 ¡Gana el equipo azul!\n")
-        elif reward < 0:
-            print("\n🏆 ¡Gana el equipo rojo!\n")
+            winner = "🔵 Azul" if current_team == 0 else "🔴 Rojo"
+            print(f"\n🏆 ¡Gana el equipo {winner}!\n")
         else:
             print("\n🤝 ¡Empate por agotamiento de turnos!\n")
 
-        # Preguntar si jugar otra partida
-        again = input("¿Jugar otro duelo? (s/n): ").lower()
+        again = input("¿Jugar otra partida? (s/n): ").lower()
         if again != "s":
             break
 
