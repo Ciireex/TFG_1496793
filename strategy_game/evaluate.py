@@ -5,7 +5,7 @@ from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3 import A2C
 
-from gym_strategy.envs.Env3v3 import Env3v3
+from gym_strategy.envs.StrategyEnvBandos import Env3v3
 from gym_strategy.core.Unit import Soldier, Archer
 
 # Configuración

@@ -15,7 +15,7 @@ class Unit:
             other_unit.health -= damage
 
     def get_attack_damage(self, other_unit):
-        return 20  # Daño por defecto
+        return 20  # Daño genérico por defecto
 
     def is_alive(self):
         return self.health > 0
@@ -30,7 +30,7 @@ class Soldier(Unit):
         if other_unit.unit_type == "Archer":
             return 50  # Mata a un Archer en 2 golpes
         else:
-            return 34  # Contra otro Soldier, 3 golpes para matar
+            return 34  # Contra otro Soldier o Knight, 3 golpes
 
 
 class Archer(Unit):
@@ -39,7 +39,7 @@ class Archer(Unit):
         self.movement = 3
 
     def get_attack_damage(self, other_unit):
-        return 25  # Hace menos daño, necesita 4 golpes para matar cualquiera
+        return 25  # Necesita 4 golpes para matar cualquiera
 
 
 class Knight(Unit):
@@ -48,4 +48,4 @@ class Knight(Unit):
         self.movement = 4
 
     def get_attack_damage(self, other_unit):
-        return 30  # No hemos cambiado nada de Knight de momento
+        return 30  # Más fuerte por defecto, 4 golpes o menos según enemigo
