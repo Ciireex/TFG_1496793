@@ -17,7 +17,6 @@ class Board:
             self.grid[new_pos] = 1
 
     def is_occupied(self, pos):
-        """Devuelve True si hay una unidad en la posición dada."""
         return any(u.position == pos for u in self.units)
 
     def is_valid_move(self, pos):

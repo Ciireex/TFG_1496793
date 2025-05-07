@@ -26,16 +26,16 @@ if __name__ == "__main__":
         obs, info = env.reset()
         done = False
 
-        # 🛠️ Corrección para acceder al entorno interno
+        # Corrección para acceder al entorno interno
         real_env = env.env
 
-        print("\n🌍 Nuevo mapa generado!")
+        print("\n Nuevo mapa generado!")
 
         while not done:
             # 5) Obtener máscara de acciones válidas
             mask = info["action_mask"]
             valid = [DIRECTIONS[i] for i, v in enumerate(mask) if v]
-            print(f"🎯 Acciones válidas: {valid}")
+            print(f"Acciones válidas: {valid}")
 
             # 6) Predicción usando action_masks
             action, _ = model.predict(
@@ -44,7 +44,7 @@ if __name__ == "__main__":
                 action_masks=mask
             )
             action = int(action)
-            print(f"🤖 Acción elegida: {DIRECTIONS[action]}")
+            print(f"Acción elegida: {DIRECTIONS[action]}")
 
             # 7) Ejecutar acción
             obs, reward, done, truncated, info = env.step(action)
@@ -61,11 +61,11 @@ if __name__ == "__main__":
 
             time.sleep(0.3)
 
-        print(f"🏁 Partida terminada - Recompensa final: {reward:.2f}")
+        print(f"Partida terminada - Recompensa final: {reward:.2f}")
 
         # Preguntar si quieres jugar otra
         again = input("¿Quieres jugar otro mapa? (s/n): ").lower()
         if again != "s":
             break
 
-    print("👋 Saliendo del juego...")
+    print("Saliendo del juego...")

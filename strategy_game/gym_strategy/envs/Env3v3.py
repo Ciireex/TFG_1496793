@@ -5,20 +5,18 @@ import random
 from collections import deque
 from gym_strategy.core.Unit import Soldier, Archer
 
-class StrategyEnv3v3(gym.Env):
-    
+class Env3v3(gym.Env):
     def __init__(self, blue_team=None, red_team=None):
         super().__init__()
         self.board_size = (7, 7)
         self.max_turns = 100
         self.capture_turns_required = 3
 
-        # Composición de equipos por parámetro
-        self.blue_team = blue_team if blue_team else [Soldier, Soldier, Archer]
-        self.red_team = red_team if red_team else [Soldier, Archer, Soldier]
+        self.blue_team = blue_team or [Soldier, Soldier, Archer]
+        self.red_team = red_team or [Soldier, Archer, Soldier]
         self.unit_types = self.blue_team + self.red_team
-
         self.num_units = len(self.unit_types)
+
         self.action_space = spaces.MultiDiscrete([9] * (self.num_units // 2))
         self.observation_space = spaces.Dict({
             "obs": spaces.Box(0.0, 1.0, shape=(8, *self.board_size), dtype=np.float32),
@@ -35,24 +33,16 @@ class StrategyEnv3v3(gym.Env):
         self.previous_positions = {}
 
         while True:
-            num_blocks = random.randint(6, 12)
             all_cells = [(x, y) for x in range(7) for y in range(7)]
-            self.blocked_positions = set(random.sample(all_cells, num_blocks))
+            self.blocked_positions = set(random.sample(all_cells, random.randint(6, 12)))
             free = [c for c in all_cells if c not in self.blocked_positions]
-
-            blue_side = [(x, 0) for x in range(7)]
-            red_side = [(x, 6) for x in range(7)]
-            center_options = [(x, 3) for x in range(2, 5)]
-
-            blue_spawns = [c for c in blue_side if c in free]
-            red_spawns = [c for c in red_side if c in free]
-            centers = [c for c in center_options if c in free]
-
-            if (len(blue_spawns) >= 3 and len(red_spawns) >= 3 and len(centers) >= 1):
+            blue_spawns = [c for c in [(x, 0) for x in range(7)] if c in free]
+            red_spawns = [c for c in [(x, 6) for x in range(7)] if c in free]
+            centers = [c for c in [(x, 3) for x in range(2, 5)] if c in free]
+            if len(blue_spawns) >= 3 and len(red_spawns) >= 3 and centers:
                 self.spawn_blue = random.sample(blue_spawns, 3)
                 self.spawn_red = random.sample(red_spawns, 3)
                 self.capture_point = random.choice(centers)
-
                 all_spawns = self.spawn_blue + self.spawn_red
                 if all(self._has_path(s, self.capture_point) for s in all_spawns):
                     break
@@ -63,8 +53,7 @@ class StrategyEnv3v3(gym.Env):
             spawn = self.spawn_blue[i] if team == 0 else self.spawn_red[i - 3]
             self.units.append(unit_cls(position=spawn, team=team))
 
-        obs = self._get_obs()
-        return {"obs": obs, "action_mask": self._get_action_mask()}, {}
+        return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, {}
 
     def step(self, actions):
         reward = -0.02
@@ -78,16 +67,18 @@ class StrategyEnv3v3(gym.Env):
 
         for i, (unit, action) in enumerate(zip(active_units, actions)):
             key = (self.current_player, i)
-            previous_pos = self.previous_positions.get(key)
+            prev_pos = self.previous_positions.get(key)
 
             if action <= 4:
                 dx, dy = dirs[action]
                 new_pos = (unit.position[0] + dx, unit.position[1] + dy)
                 if self._valid_move(new_pos) and not self._position_occupied(new_pos):
                     unit.move(new_pos)
-                    if previous_pos == new_pos:
+                    if prev_pos == new_pos:
                         reward -= 0.05
                     self.previous_positions[key] = new_pos
+                else:
+                    reward -= 0.1  # Penalización por movimiento inválido
             else:
                 dx, dy = attacks[action - 5]
                 target = (unit.position[0] + dx, unit.position[1] + dy)
@@ -97,7 +88,7 @@ class StrategyEnv3v3(gym.Env):
                         reward += 0.1
                         break
                 else:
-                    reward -= 0.1
+                    reward -= 0.1  # Penalización por atacar sin enemigo
 
             if unit.position == self.capture_point:
                 self.capture_progress[self.current_player] += 1
@@ -119,20 +110,20 @@ class StrategyEnv3v3(gym.Env):
         if not terminated:
             self.current_player = 1 - self.current_player
 
-        obs = self._get_obs()
-        return {"obs": obs, "action_mask": self._get_action_mask()}, reward, terminated, False, {"episode": {"r": reward, "l": self.turn_count}} if terminated else {}
+        return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, reward, terminated, False, {
+            "episode": {"r": reward, "l": self.turn_count}
+        } if terminated else {}
 
     def _get_obs(self):
         board = np.zeros((8, *self.board_size), dtype=np.float32)
         for x, y in self.blocked_positions:
             board[0, x, y] = 1.0
-        for i, unit in enumerate(self.units):
+        for unit in self.units:
             if unit.is_alive():
                 x, y = unit.position
-                ch = unit.health / 100
-                ch_id = 1 if isinstance(unit, Soldier) else 2
-                channel = 1 + (unit.team * 3) + (0 if ch_id == 1 else 1)
-                board[channel, x, y] = ch
+                health = unit.health / 100
+                base = 1 + (unit.team * 3)
+                board[base + (0 if isinstance(unit, Soldier) else 1), x, y] = health
         cx, cy = self.capture_point
         board[7, cx, cy] = 1.0
         return board
@@ -154,10 +145,8 @@ class StrategyEnv3v3(gym.Env):
             for a, (dx, dy) in enumerate(attacks):
                 tx, ty = unit.position[0] + dx, unit.position[1] + dy
                 if 0 <= tx < 7 and 0 <= ty < 7:
-                    for e in enemies:
-                        if e.position == (tx, ty):
-                            mask[i, 5 + a] = 1
-                            break
+                    if any(e.position == (tx, ty) for e in enemies):
+                        mask[i, 5 + a] = 1
         return mask
 
     def _valid_move(self, pos):
@@ -166,9 +155,6 @@ class StrategyEnv3v3(gym.Env):
 
     def _position_occupied(self, pos):
         return any(u.is_alive() and u.position == pos for u in self.units)
-
-    def _manhattan_distance(self, pos1, pos2):
-        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
     def _has_path(self, start, goal):
         visited = {start}
@@ -179,8 +165,7 @@ class StrategyEnv3v3(gym.Env):
                 return True
             for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
                 nx, ny = x + dx, y + dy
-                if (0 <= nx < 7 and 0 <= ny < 7 and (nx, ny) not in self.blocked_positions
-                        and (nx, ny) not in visited):
+                if (0 <= nx < 7 and 0 <= ny < 7 and (nx, ny) not in self.blocked_positions and (nx, ny) not in visited):
                     visited.add((nx, ny))
                     queue.append((nx, ny))
         return False

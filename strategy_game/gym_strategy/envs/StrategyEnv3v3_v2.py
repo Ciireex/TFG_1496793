@@ -1,3 +1,5 @@
+# ✅ Nuevo StrategyEnv3v3 con ataque a distancia del arquero y refuerzo de captura
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -6,14 +8,13 @@ from collections import deque
 from gym_strategy.core.Unit import Soldier, Archer
 
 class StrategyEnv3v3(gym.Env):
-    
+
     def __init__(self, blue_team=None, red_team=None):
         super().__init__()
         self.board_size = (7, 7)
         self.max_turns = 100
         self.capture_turns_required = 3
 
-        # Composición de equipos por parámetro
         self.blue_team = blue_team if blue_team else [Soldier, Soldier, Archer]
         self.red_team = red_team if red_team else [Soldier, Archer, Soldier]
         self.unit_types = self.blue_team + self.red_team
@@ -88,16 +89,44 @@ class StrategyEnv3v3(gym.Env):
                     if previous_pos == new_pos:
                         reward -= 0.05
                     self.previous_positions[key] = new_pos
+
+                    prev_dist = self._manhattan_distance(previous_pos, self.capture_point) if previous_pos else 99
+                    new_dist = self._manhattan_distance(new_pos, self.capture_point)
+                    if new_dist < prev_dist:
+                        reward += 0.03
             else:
                 dx, dy = attacks[action - 5]
-                target = (unit.position[0] + dx, unit.position[1] + dy)
-                for enemy in enemy_units:
-                    if enemy.is_alive() and enemy.position == target:
-                        enemy.health -= 50
-                        reward += 0.1
-                        break
+                hit = False
+
+                if unit.unit_type == "Archer":
+                    for dist in range(1, 4):
+                        tx, ty = unit.position[0] + dx * dist, unit.position[1] + dy * dist
+                        if not (0 <= tx < 7 and 0 <= ty < 7):
+                            break
+                        for enemy in enemy_units:
+                            if enemy.is_alive() and enemy.position == (tx, ty):
+                                unit.attack(enemy)
+                                reward += 0.1
+                                if enemy.position == self.capture_point:
+                                    reward += 0.15  # bonificación por impedir captura enemiga
+                                hit = True
+                                break
+                        if hit:
+                            break
+                    if not hit:
+                        reward -= 0.1
                 else:
-                    reward -= 0.1
+                    tx, ty = unit.position[0] + dx, unit.position[1] + dy
+                    for enemy in enemy_units:
+                        if enemy.is_alive() and enemy.position == (tx, ty):
+                            unit.attack(enemy)
+                            reward += 0.1
+                            if enemy.position == self.capture_point:
+                                reward += 0.15  # bonificación por impedir captura enemiga
+                            hit = True
+                            break
+                    if not hit:
+                        reward -= 0.1
 
             if unit.position == self.capture_point:
                 self.capture_progress[self.current_player] += 1
@@ -152,12 +181,7 @@ class StrategyEnv3v3(gym.Env):
                     if not self._position_occupied((nx, ny)) or (dx, dy) == (0, 0):
                         mask[i, a] = 1
             for a, (dx, dy) in enumerate(attacks):
-                tx, ty = unit.position[0] + dx, unit.position[1] + dy
-                if 0 <= tx < 7 and 0 <= ty < 7:
-                    for e in enemies:
-                        if e.position == (tx, ty):
-                            mask[i, 5 + a] = 1
-                            break
+                mask[i, 5 + a] = 1
         return mask
 
     def _valid_move(self, pos):

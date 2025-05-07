@@ -26,4 +26,4 @@ while not terminated:
     renderer.draw_board(env.units, blocked_positions=env.blocked_positions)
     time.sleep(0.5)
 
-print("🏁 Recompensa final:", reward)
+print("Recompensa final:", reward)

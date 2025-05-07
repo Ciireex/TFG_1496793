@@ -7,7 +7,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from gym_strategy.envs.StrategyEnv3v3 import StrategyEnv3v3
 from gym_strategy.core.Unit import Soldier, Archer
 
-# ⛑️ Callback para registrar progreso
+# Callback para registrar progreso
 class LogCallback(BaseCallback):
     def __init__(self, log_every=5000, verbose=1):
         super().__init__(verbose)
@@ -20,26 +20,26 @@ class LogCallback(BaseCallback):
                 ep = info.get("episode")
                 if ep and self.n_calls % self.log_every == 0:
                     r, l = ep["r"], ep["l"]
-                    print(f"📈 Paso {self.n_calls} | Recompensa: {r:.2f} | Longitud: {l}")
+                    print(f"Paso {self.n_calls} | Recompensa: {r:.2f} | Longitud: {l}")
         return True
 
-# 🎭 Función para aplicar la máscara
+# Función para aplicar la máscara
 def mask_fn(env):
     return env._get_action_mask()
 
 if __name__ == "__main__":
-    # 👥 Composición de equipos
+    # Composición de equipos
     blue_team = [Soldier, Soldier, Archer]
     red_team = [Archer, Soldier, Soldier]
 
-    # 🌍 Crear entorno
+    # Crear entorno
     def make_env():
         env = StrategyEnv3v3(blue_team=blue_team, red_team=red_team)
         return ActionMasker(env, mask_fn)
 
     env = DummyVecEnv([make_env])
 
-    # 🧠 Crear el modelo PPO con red personalizada
+    # Crear el modelo PPO con red personalizada
     model = MaskablePPO(
         policy="MultiInputPolicy",
         env=env,
@@ -54,12 +54,12 @@ if __name__ == "__main__":
         ),
     )
 
-    # 🚀 Entrenamiento
+    # Entrenamiento
     model.learn(
         total_timesteps=2_000_000,
         callback=LogCallback(log_every=5000),
     )
 
-    # 💾 Guardar modelo
+    # Guardar modelo
     model.save("ppo_3v3_soldiers_archers")
     print("✅ Modelo guardado como 'ppo_3v3_soldiers_archers.zip'")
