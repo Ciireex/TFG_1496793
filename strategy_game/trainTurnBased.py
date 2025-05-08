@@ -2,7 +2,7 @@ import os
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import BaseCallback
-from gym_strategy.envs.StrategyEnvBandos import StrategyEnvBandos
+from gym_strategy.envs.StrategyEnvTurnBased import StrategyEnvTurnBased
 from gym_strategy.core.Unit import Soldier, Archer
 import gymnasium as gym
 
@@ -33,7 +33,7 @@ class LogCallback(BaseCallback):
 def mask_fn(env):
     return env.unwrapped._get_action_mask()
 
-# Wrapper para filtrar recompensa según el equipo entrenado
+# Wrapper para que el agente solo aprenda en su turno
 class StrategyWrapper(gym.Wrapper):
     def __init__(self, env, team_controlled):
         super().__init__(env)
@@ -42,7 +42,7 @@ class StrategyWrapper(gym.Wrapper):
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         if self.env.current_player != self.team_controlled:
-            reward = 0.0  # solo aprende cuando actúa
+            reward = 0.0  # ignora recompensas del otro equipo
         return obs, reward, terminated, truncated, info
 
     def reset(self, **kwargs):
@@ -55,13 +55,13 @@ class StrategyWrapper(gym.Wrapper):
 blue_team = [Soldier, Soldier, Archer]
 red_team = [Archer, Soldier, Soldier]
 
-# Funciones para crear entornos para cada modelo
+# Funciones para entornos entrenables
 def make_env_blue():
-    env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
+    env = StrategyEnvTurnBased(blue_team=blue_team, red_team=red_team)
     return ActionMasker(StrategyWrapper(env, team_controlled=0), mask_fn)
 
 def make_env_red():
-    env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
+    env = StrategyEnvTurnBased(blue_team=blue_team, red_team=red_team)
     return ActionMasker(StrategyWrapper(env, team_controlled=1), mask_fn)
 
 # Crear modelos
@@ -90,14 +90,14 @@ model_red = MaskablePPO(
 )
 
 # Entrenamiento alternado
-for i in range(10):
+for i in range(8):
     print(f"\n🔵 Ciclo {i+1} - Entrenando equipo AZUL")
     model_blue.learn(total_timesteps=100_000, callback=LogCallback())
 
     print(f"\n🔴 Ciclo {i+1} - Entrenando equipo ROJO")
     model_red.learn(total_timesteps=100_000, callback=LogCallback())
 
-    model_blue.save(f"ppo_bandos_BLUE_ciclo{i+1}")
-    model_red.save(f"ppo_bandos_RED_ciclo{i+1}")
+    model_blue.save(f"ppo_turnbased_BLUE_ciclo{i+1}")
+    model_red.save(f"ppo_turnbased_RED_ciclo{i+1}")
 
-print("✅ Entrenamiento dual finalizado.")
+print("✅ Entrenamiento por turnos completado.")

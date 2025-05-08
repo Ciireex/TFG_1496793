@@ -33,7 +33,7 @@ class LogCallback(BaseCallback):
 def mask_fn(env):
     return env.unwrapped._get_action_mask()
 
-# Wrapper para filtrar recompensa según el equipo entrenado
+# Wrapper para filtrar recompensa según equipo
 class StrategyWrapper(gym.Wrapper):
     def __init__(self, env, team_controlled):
         super().__init__(env)
@@ -42,7 +42,7 @@ class StrategyWrapper(gym.Wrapper):
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         if self.env.current_player != self.team_controlled:
-            reward = 0.0  # solo aprende cuando actúa
+            reward = 0.0
         return obs, reward, terminated, truncated, info
 
     def reset(self, **kwargs):
@@ -55,49 +55,59 @@ class StrategyWrapper(gym.Wrapper):
 blue_team = [Soldier, Soldier, Archer]
 red_team = [Archer, Soldier, Soldier]
 
-# Funciones para crear entornos para cada modelo
-def make_env_blue():
-    env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
-    return ActionMasker(StrategyWrapper(env, team_controlled=0), mask_fn)
+# Entrenamiento adaptativo por self-play
+cycles = 10
+for i in range(cycles):
+    print(f"\n🔁 Ciclo {i+1} - Self-play adaptativo")
 
-def make_env_red():
-    env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
-    return ActionMasker(StrategyWrapper(env, team_controlled=1), mask_fn)
+    # Cargar modelos previos si existen
+    if i == 0:
+        red_opponent = None
+    else:
+        red_opponent = MaskablePPO.load(f"ppo_selfplay_RED_ciclo{i}")
 
-# Crear modelos
-model_blue = MaskablePPO(
-    policy="MultiInputPolicy",
-    env=make_env_blue(),
-    verbose=1,
-    learning_rate=1e-4,
-    ent_coef=0.005,
-    n_steps=4096,
-    batch_size=256,
-    clip_range=0.2,
-    policy_kwargs=dict(net_arch=[dict(pi=[128, 128], vf=[128, 128])])
-)
+    def make_env_blue():
+        env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
+        if red_opponent:
+            env.red_agent = red_opponent  # oponente fijo para el azul
+        return ActionMasker(StrategyWrapper(env, team_controlled=0), mask_fn)
 
-model_red = MaskablePPO(
-    policy="MultiInputPolicy",
-    env=make_env_red(),
-    verbose=1,
-    learning_rate=1e-4,
-    ent_coef=0.005,
-    n_steps=4096,
-    batch_size=256,
-    clip_range=0.2,
-    policy_kwargs=dict(net_arch=[dict(pi=[128, 128], vf=[128, 128])])
-)
+    model_blue = MaskablePPO(
+        policy="MultiInputPolicy",
+        env=make_env_blue(),
+        verbose=1,
+        learning_rate=1e-4,
+        ent_coef=0.005,
+        n_steps=4096,
+        batch_size=256,
+        clip_range=0.2,
+        policy_kwargs=dict(net_arch=[dict(pi=[128, 128], vf=[128, 128])])
+    )
 
-# Entrenamiento alternado
-for i in range(10):
-    print(f"\n🔵 Ciclo {i+1} - Entrenando equipo AZUL")
     model_blue.learn(total_timesteps=100_000, callback=LogCallback())
+    model_blue.save(f"ppo_selfplay_BLUE_ciclo{i+1}")
 
-    print(f"\n🔴 Ciclo {i+1} - Entrenando equipo ROJO")
+    # Ahora entrenamos el rojo contra el azul recién guardado
+    blue_opponent = MaskablePPO.load(f"ppo_selfplay_BLUE_ciclo{i+1}")
+
+    def make_env_red():
+        env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
+        env.blue_agent = blue_opponent  # oponente fijo para el rojo
+        return ActionMasker(StrategyWrapper(env, team_controlled=1), mask_fn)
+
+    model_red = MaskablePPO(
+        policy="MultiInputPolicy",
+        env=make_env_red(),
+        verbose=1,
+        learning_rate=1e-4,
+        ent_coef=0.005,
+        n_steps=4096,
+        batch_size=256,
+        clip_range=0.2,
+        policy_kwargs=dict(net_arch=[dict(pi=[128, 128], vf=[128, 128])])
+    )
+
     model_red.learn(total_timesteps=100_000, callback=LogCallback())
+    model_red.save(f"ppo_selfplay_RED_ciclo{i+1}")
 
-    model_blue.save(f"ppo_bandos_BLUE_ciclo{i+1}")
-    model_red.save(f"ppo_bandos_RED_ciclo{i+1}")
-
-print("✅ Entrenamiento dual finalizado.")
+print("✅ Entrenamiento self-play completado")

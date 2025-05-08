@@ -1,69 +1,72 @@
-import sys, os
-sys.path.append(os.path.abspath("."))
-
+import time
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-from stable_baselines3 import A2C
 
-from gym_strategy.envs.StrategyEnvBandos import Env3v3
+from gym_strategy.envs.StrategyEnvBandos import StrategyEnvBandos
 from gym_strategy.core.Unit import Soldier, Archer
 
-# Configuración
-MODEL_NAME = "ppo_3v3_soldiers_archers"  # o "a2c_3v3_soldiers_archers"
-USE_MASKABLE = MODEL_NAME.startswith("ppo")
-NUM_EPISODES = 1000
-
+# Acción máscara
 def mask_fn(env):
-    return env._get_action_mask()
+    return env.unwrapped._get_action_mask()
 
-# Equipos
-blue_team = [Soldier, Soldier, Archer]
-red_team = [Archer, Soldier, Soldier]
+# Wrapper para evaluación de un equipo
+class StrategyEvalWrapper:
+    def __init__(self, env, model, team_controlled):
+        self.env = env
+        self.model = model
+        self.team = team_controlled
 
-# Cargar modelo
-if USE_MASKABLE:
-    model = MaskablePPO.load(MODEL_NAME)
-else:
-    model = A2C.load(MODEL_NAME)
+    def get_actions(self, obs):
+        if self.env.unwrapped.current_player == self.team:
+            action_masks = self.env.unwrapped._get_action_mask()
+            action, _ = self.model.predict(obs, action_masks=action_masks)
+            return action
+        else:
+            return [0] * len([
+                u for u in self.env.unwrapped.units
+                if u.team == self.env.unwrapped.current_player and u.is_alive()
+            ])
 
-# Crear entorno
-def make_env():
-    base_env = Env3v3(blue_team=blue_team, red_team=red_team)
-    return ActionMasker(base_env, mask_fn) if USE_MASKABLE else base_env
+if __name__ == "__main__":
+    blue_team = [Soldier, Soldier, Archer]
+    red_team = [Archer, Soldier, Soldier]
 
-env = make_env()
+    model_blue = MaskablePPO.load("ppo_bandos_BLUE_ciclo10")
+    model_red = MaskablePPO.load("ppo_bandos_RED_ciclo10")
 
-# Métricas
-wins_blue = 0
-wins_red = 0
-draws = 0
+    blue_wins = 0
+    red_wins = 0
+    draws = 0
+    total_games = 100
 
-for episode in range(1, NUM_EPISODES + 1):
-    obs, _ = env.reset()
-    done = False
-    current_player = 0
+    for i in range(total_games):
+        env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
+        env = ActionMasker(env, mask_fn)
+        env_base = env.unwrapped
 
-    while not done:
-        current_player = env.env.current_player  # Quién juega ahora
-        mask = obs["action_mask"] if USE_MASKABLE else None
-        action, _ = model.predict(obs, deterministic=True, action_masks=mask) if USE_MASKABLE else model.predict(obs, deterministic=True)
-        obs, reward, done, _, info = env.step(action)
+        blue_agent = StrategyEvalWrapper(env, model_blue, team_controlled=0)
+        red_agent = StrategyEvalWrapper(env, model_red, team_controlled=1)
 
-    # Evaluar resultado
-    if "episode" in info:
-        if info["episode"]["r"] == 1.5:
-            if current_player == 0:
-                wins_blue += 1
-            else:
-                wins_red += 1
+        obs, _ = env.reset()
+        done = False
+
+        while not done:
+            current_agent = blue_agent if env_base.current_player == 0 else red_agent
+            actions = current_agent.get_actions(obs)
+            obs, _, done, _, info = env.step(actions)
+
+        winner = info.get("episode", {}).get("winner", -1)
+        if winner == 0:
+            blue_wins += 1
+        elif winner == 1:
+            red_wins += 1
         else:
             draws += 1
 
-    if episode % 100 == 0:
-        print(f"✔️ {episode} partidas simuladas...")
+        print(f"Partida {i+1}/{total_games} terminada. Ganador: {'Azul' if winner == 0 else 'Rojo' if winner == 1 else 'Empate'}")
 
-# Resultados
-print("\nRESULTADOS FINALES")
-print(f"Victorias equipo azul: {wins_blue} / {NUM_EPISODES} ({(wins_blue / NUM_EPISODES) * 100:.2f}%)")
-print(f"Victorias equipo rojo: {wins_red} / {NUM_EPISODES} ({(wins_red / NUM_EPISODES) * 100:.2f}%)")
-print(f"Empates / sin resolución clara: {draws} ({(draws / NUM_EPISODES) * 100:.2f}%)")
+    print("\n✅ Evaluación completada")
+    print(f"Total partidas: {total_games}")
+    print(f"🏆 Victorias Azul: {blue_wins} ({(blue_wins/total_games)*100:.1f}%)")
+    print(f"🔴 Victorias Rojo: {red_wins} ({(red_wins/total_games)*100:.1f}%)")
+    print(f"➖ Empates: {draws} ({(draws/total_games)*100:.1f}%)")

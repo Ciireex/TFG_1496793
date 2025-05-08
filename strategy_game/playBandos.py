@@ -7,9 +7,11 @@ from gym_strategy.envs.StrategyEnvBandos import StrategyEnvBandos
 from gym_strategy.core.Unit import Soldier, Archer
 from gym_strategy.core.Renderer import Renderer
 
+# Acción máscara
 def mask_fn(env):
     return env.unwrapped._get_action_mask()
 
+# Wrapper para evaluación por equipo
 class StrategyEvalWrapper:
     def __init__(self, env, model, team_controlled):
         self.env = env
@@ -37,8 +39,8 @@ if __name__ == "__main__":
 
     renderer = Renderer(width=60 * 9, height=60 * 6, board_size=env_base.board_size)
 
-    model_blue = MaskablePPO.load("ppo_bandos_v2_BLUE")
-    model_red = MaskablePPO.load("ppo_bandos_v2_RED")
+    model_blue = MaskablePPO.load("ppo_bandos_BLUE_ciclo10")
+    model_red = MaskablePPO.load("ppo_bandos_RED_ciclo10")
 
     blue_agent = StrategyEvalWrapper(env, model_blue, team_controlled=0)
     red_agent = StrategyEvalWrapper(env, model_red, team_controlled=1)
@@ -62,7 +64,6 @@ if __name__ == "__main__":
 
         print(f"\n🧠 Turno del equipo {current_team}")
         units = [u for u in env_base.units if u.team == env_base.current_player and u.is_alive()]
-        enemy_units = [u for u in env_base.units if u.team != env_base.current_player and u.is_alive()]
         dirs = [(0, 0), (0, -1), (0, 1), (-1, 0), (1, 0)]
         attack_dirs = ["arriba", "abajo", "izquierda", "derecha"]
 
@@ -72,14 +73,8 @@ if __name__ == "__main__":
                 print(f" - {unit.unit_type} en {unit.position} se mueve: {move_str}")
             else:
                 dx, dy = dirs[action - 5 + 1]
-                target_pos = (unit.position[0] + dx, unit.position[1] + dy)
                 direction = attack_dirs[action - 5]
                 print(f" - {unit.unit_type} en {unit.position} ataca hacia {direction}")
-                for enemy in enemy_units:
-                    if enemy.position == target_pos and enemy.is_alive():
-                        damage = unit.get_attack_damage(enemy)
-                        print(f"   🔥 Golpea a {enemy.unit_type} enemigo en {target_pos} (-{damage} HP)")
-                        break
 
         obs, reward, done, _, info = env.step(actions)
 
