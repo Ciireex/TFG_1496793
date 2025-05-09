@@ -17,10 +17,10 @@ class StrategyEnvTurnBased(gym.Env):
         self.unit_types = self.blue_team + self.red_team
         self.num_units = len(self.unit_types)
 
-        self.action_space = spaces.Discrete(9)  # 5 mov + 4 ataques
+        self.action_space = spaces.Discrete(5)  # solo movimiento o ataque, según fase
         self.observation_space = spaces.Dict({
-            "obs": spaces.Box(0.0, 1.0, shape=(10, *self.board_size), dtype=np.float32),
-            "action_mask": spaces.MultiBinary(9)
+            "obs": spaces.Box(0.0, 1.0, shape=(11, *self.board_size), dtype=np.float32),
+            "action_mask": spaces.MultiBinary(5)
         })
 
         self.reset()
@@ -29,7 +29,8 @@ class StrategyEnvTurnBased(gym.Env):
         super().reset(seed=seed)
         self.turn_count = 0
         self.current_player = 0
-        self.active_unit_idx = 0
+        self.active_unit_index = 0
+        self.phase = "move"
         self.capture_progress = [0, 0]
 
         width, height = self.board_size
@@ -60,71 +61,93 @@ class StrategyEnvTurnBased(gym.Env):
             spawn = self.spawn_blue[i] if team == 0 else self.spawn_red[i - 3]
             self.units.append(unit_cls(position=spawn, team=team))
 
-        obs = self._get_obs()
-        return {"obs": obs, "action_mask": self._get_action_mask()}, {}
+        return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, {}
 
     def step(self, action):
-        reward = -0.01
+        reward = 0.0
         terminated = False
 
+        team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        if self.active_unit_index >= len(team_units):
+            self._advance_turn()
+            team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+
+        unit = team_units[self.active_unit_index]
         dirs = [(0, 0), (0, -1), (0, 1), (-1, 0), (1, 0)]
         attacks_melee = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         attacks_archer = [(dx, dy) for dx in range(-3, 4) for dy in range(-3, 4)
                           if abs(dx) + abs(dy) in [2, 3] and (dx == 0 or dy == 0)]
+        enemies = [u for u in self.units if u.team != self.current_player and u.is_alive()]
 
-        active_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
-        if not active_units:
-            terminated = True
-            return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, -1.0, terminated, False, {}
-
-        if self.active_unit_idx >= len(active_units):
-            self.current_player = 1 - self.current_player
-            self.active_unit_idx = 0
-            self.turn_count += 1
-            if self.turn_count >= self.max_turns:
-                return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, -0.5, True, False, {}
-
-        unit = active_units[self.active_unit_idx]
-
-        # Movimiento
-        if action <= 4:
+        if self.phase == "move":
             dx, dy = dirs[action]
             new_pos = (unit.position[0] + dx, unit.position[1] + dy)
             if self._valid_move(new_pos) and not self._position_occupied(new_pos):
                 unit.move(new_pos)
-        # Ataque
-        else:
-            delta = (attacks_melee + attacks_archer)[action - 5]
-            target = (unit.position[0] + delta[0], unit.position[1] + delta[1])
-            for enemy in self.units:
-                if enemy.team != self.current_player and enemy.is_alive() and enemy.position == target:
-                    damage = unit.get_attack_damage(enemy)
-                    enemy.health -= damage
-                    reward += 0.2
-                    if isinstance(unit, Soldier) and enemy.unit_type == "Archer":
-                        reward += 0.2
-                    if enemy.health <= 0:
-                        reward += 1.0
-                    break
+                reward += 0.01
             else:
-                reward -= 0.1
-
-        if unit.position == self.capture_point:
-            self.capture_progress[self.current_player] += 1
-            if self.capture_progress[self.current_player] >= self.capture_turns_required:
-                return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, 1.5, True, False, {}
+                reward -= 0.05
+            self.phase = "attack"
         else:
-            self.capture_progress[self.current_player] = 0
+            hit_successful = False
+            if unit.unit_type == "Archer":
+                attack_deltas = attacks_archer
+            else:
+                attack_deltas = attacks_melee
+            if action < len(attack_deltas):
+                dx, dy = attack_deltas[action]
+                target = (unit.position[0] + dx, unit.position[1] + dy)
+                for enemy in enemies:
+                    if enemy.position == target and enemy.is_alive():
+                        damage = unit.get_attack_damage(enemy)
+                        enemy.health -= damage
+                        reward += 0.2
+                        hit_successful = True
+                        if isinstance(unit, Soldier) and enemy.unit_type == "Archer":
+                            reward += 0.2
+                        if enemy.health <= 0:
+                            reward += 0.8
+                        break
+                if not hit_successful:
+                    reward -= 0.05
+            else:
+                reward -= 0.05
 
-        if not any(u.team != self.current_player and u.is_alive() for u in self.units):
-            return {"obs": self._get_obs(), "action_mask": self._get_action_mask()}, 1.5, True, False, {}
+            if unit.position == self.capture_point:
+                self.capture_progress[self.current_player] += 1
+                if self.capture_progress[self.current_player] >= self.capture_turns_required:
+                    reward += 2.0
+                    terminated = True
+            else:
+                self.capture_progress[self.current_player] = 0
 
-        self.active_unit_idx += 1
+            if not any(u.team != self.current_player and u.is_alive() for u in self.units):
+                reward += 2.0
+                terminated = True
+
+            if self.turn_count >= self.max_turns:
+                reward -= 1.0
+                terminated = True
+
+            self.active_unit_index += 1
+            if self.active_unit_index >= len(team_units):
+                self._advance_turn()
+            self.phase = "move"
+
         obs = self._get_obs()
-        return {"obs": obs, "action_mask": self._get_action_mask()}, reward, False, False, {}
+        winner = self.current_player if reward >= 2.0 else -1
+        return {"obs": obs, "action_mask": self._get_action_mask()}, reward, terminated, False, {
+            "episode": {"r": reward, "l": self.turn_count, "winner": winner}
+        } if terminated else {}
+
+    def _advance_turn(self):
+        self.current_player = 1 - self.current_player
+        self.active_unit_index = 0
+        self.turn_count += 1
+        self.phase = "move"
 
     def _get_obs(self):
-        board = np.zeros((10, *self.board_size), dtype=np.float32)
+        board = np.zeros((11, *self.board_size), dtype=np.float32)
         for x, y in self.blocked_positions:
             board[0, x, y] = 1.0
         for unit in self.units:
@@ -137,42 +160,44 @@ class StrategyEnvTurnBased(gym.Env):
         cx, cy = self.capture_point
         board[7, cx, cy] = 1.0
 
-        for unit in self.units:
-            if unit.team == self.current_player and unit.is_alive():
-                x, y = unit.position
-                board[8, x, y] = 1.0
-                board[9, x, y] = 1 if isinstance(unit, Soldier) else 2
-
+        my_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        if self.active_unit_index < len(my_units):
+            unit = my_units[self.active_unit_index]
+            x, y = unit.position
+            board[8, x, y] = 1.0
+            board[9, x, y] = 1 if isinstance(unit, Soldier) else 2
+        board[10] = self.current_player
         return board
 
     def _get_action_mask(self):
-        mask = np.zeros(9, dtype=np.int8)
+        mask = np.zeros(5, dtype=np.int8)
         dirs = [(0, 0), (0, -1), (0, 1), (-1, 0), (1, 0)]
         attacks_melee = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         attacks_archer = [(dx, dy) for dx in range(-3, 4) for dy in range(-3, 4)
                           if abs(dx) + abs(dy) in [2, 3] and (dx == 0 or dy == 0)]
 
-        active_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
-        if self.active_unit_idx >= len(active_units):
+        team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        if self.active_unit_index >= len(team_units):
             return mask
+        unit = team_units[self.active_unit_index]
+        enemies = [u for u in self.units if u.team != self.current_player and u.is_alive()]
 
-        unit = active_units[self.active_unit_idx]
-        for a, (dx, dy) in enumerate(dirs):
-            nx, ny = unit.position[0] + dx, unit.position[1] + dy
-            if 0 <= nx < self.board_size[0] and 0 <= ny < self.board_size[1] and (nx, ny) not in self.blocked_positions:
-                if not self._position_occupied((nx, ny)) or (dx, dy) == (0, 0):
-                    mask[a] = 1
-
-        attack_deltas = attacks_archer if unit.unit_type == "Archer" else attacks_melee
-        for i, (dx, dy) in enumerate(attack_deltas):
-            if i >= 4: break
-            tx, ty = unit.position[0] + dx, unit.position[1] + dy
-            if 0 <= tx < self.board_size[0] and 0 <= ty < self.board_size[1]:
-                for e in self.units:
-                    if e.team != self.current_player and e.is_alive() and e.position == (tx, ty):
-                        mask[5 + i] = 1
-                        break
-
+        if self.phase == "move":
+            for a, (dx, dy) in enumerate(dirs):
+                nx, ny = unit.position[0] + dx, unit.position[1] + dy
+                if 0 <= nx < self.board_size[0] and 0 <= ny < self.board_size[1] and (nx, ny) not in self.blocked_positions:
+                    if not self._position_occupied((nx, ny)) or (dx, dy) == (0, 0):
+                        mask[a] = 1
+        else:
+            attack_deltas = attacks_archer if unit.unit_type == "Archer" else attacks_melee
+            for a, (dx, dy) in enumerate(attack_deltas):
+                if a >= 5: break
+                tx, ty = unit.position[0] + dx, unit.position[1] + dy
+                if 0 <= tx < self.board_size[0] and 0 <= ty < self.board_size[1]:
+                    for e in enemies:
+                        if e.position == (tx, ty):
+                            mask[a] = 1
+                            break
         return mask
 
     def _valid_move(self, pos):
