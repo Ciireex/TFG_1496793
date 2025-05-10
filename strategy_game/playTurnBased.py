@@ -36,8 +36,8 @@ if __name__ == "__main__":
 
     renderer = Renderer(width=60 * 9, height=60 * 6, board_size=env_base.board_size)
 
-    model_blue = MaskablePPO.load("ppo_turnbased_BLUE_ciclo10_v2")
-    model_red = MaskablePPO.load("ppo_turnbased_RED_ciclo10_v2")
+    model_blue = MaskablePPO.load("ppo_turnbased_BLUE_ciclo10_v4")
+    model_red = MaskablePPO.load("ppo_turnbased_RED_ciclo10_v4")
 
     blue_agent = StrategyEvalWrapper(env, model_blue, team_controlled=0)
     red_agent = StrategyEvalWrapper(env, model_red, team_controlled=1)

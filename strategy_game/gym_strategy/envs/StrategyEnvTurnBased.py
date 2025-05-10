@@ -73,6 +73,8 @@ class StrategyEnvTurnBased(gym.Env):
             team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
 
         unit = team_units[self.active_unit_index]
+        started_on_capture = unit.position == self.capture_point
+
         dirs = [(0, 0), (0, -1), (0, 1), (-1, 0), (1, 0)]
         attacks_melee = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         attacks_archer = [(dx, dy) for dx in range(-3, 4) for dy in range(-3, 4)
@@ -113,29 +115,43 @@ class StrategyEnvTurnBased(gym.Env):
             else:
                 reward -= 0.05
 
-            if unit.position == self.capture_point:
-                self.capture_progress[self.current_player] += 1
-                if self.capture_progress[self.current_player] >= self.capture_turns_required:
-                    reward += 2.0
-                    terminated = True
-            else:
-                self.capture_progress[self.current_player] = 0
-
-            if not any(u.team != self.current_player and u.is_alive() for u in self.units):
-                reward += 2.0
-                terminated = True
-
-            if self.turn_count >= self.max_turns:
-                reward -= 1.0
-                terminated = True
-
             self.active_unit_index += 1
             if self.active_unit_index >= len(team_units):
                 self._advance_turn()
             self.phase = "move"
 
+        reward -= 0.01  # castigo leve por turno gastado
+
+        ended_on_capture = unit.position == self.capture_point
+        if started_on_capture and ended_on_capture:
+            self.capture_progress[self.current_player] += 1
+            reward += 0.7  # bonificación base por estar en el punto
+
+            if self.capture_progress[self.current_player] > 1:
+                reward += 0.3  # bonificación adicional por mantenerse
+
+            reward -= 0.3 * sum(1 for u in self.units if u.team != self.current_player and u.is_alive())
+
+            if self.capture_progress[self.current_player] >= self.capture_turns_required:
+                reward += 2.0
+                terminated = True
+
+        elif started_on_capture and not ended_on_capture:
+            reward -= 0.3  # castigo por abandonar el punto de captura
+            self.capture_progress[self.current_player] = 0
+        else:
+            self.capture_progress[self.current_player] = 0
+
+        if not any(u.team != self.current_player and u.is_alive() for u in self.units):
+            reward += 2.0
+            terminated = True
+
+        if self.turn_count >= self.max_turns:
+            reward -= 1.0
+            terminated = True
+
         obs = self._get_obs()
-        winner = self.current_player if reward >= 2.0 else -1
+        winner = self.current_player if terminated else -1
         return {"obs": obs, "action_mask": self._get_action_mask()}, reward, terminated, False, {
             "episode": {"r": reward, "l": self.turn_count, "winner": winner}
         } if terminated else {}
@@ -191,13 +207,12 @@ class StrategyEnvTurnBased(gym.Env):
         else:
             attack_deltas = attacks_archer if unit.unit_type == "Archer" else attacks_melee
             for a, (dx, dy) in enumerate(attack_deltas):
-                if a >= 5: break
+                if a >= 5:
+                    break
                 tx, ty = unit.position[0] + dx, unit.position[1] + dy
                 if 0 <= tx < self.board_size[0] and 0 <= ty < self.board_size[1]:
-                    for e in enemies:
-                        if e.position == (tx, ty):
-                            mask[a] = 1
-                            break
+                    if any(e.position == (tx, ty) and e.is_alive() for e in enemies):
+                        mask[a] = 1
         return mask
 
     def _valid_move(self, pos):

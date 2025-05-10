@@ -56,7 +56,6 @@ blue_team = [Soldier, Soldier, Archer]
 red_team = [Archer, Soldier, Soldier]
 
 # Crear entornos
-
 def make_env_blue():
     env = StrategyEnvTurnBased(blue_team=blue_team, red_team=red_team)
     return ActionMasker(StrategyWrapper(env, team_controlled=0), mask_fn)
@@ -98,7 +97,7 @@ for i in range(10):
     print(f"\nCiclo {i+1} - Entrenando equipo ROJO")
     model_red.learn(total_timesteps=100_000, callback=LogCallback())
 
-    model_blue.save(f"ppo_turnbased_BLUE_ciclo{i+1}_v2")
-    model_red.save(f"ppo_turnbased_RED_ciclo{i+1}_v2")
+    model_blue.save(f"ppo_turnbased_BLUE_ciclo{i+1}_v4")
+    model_red.save(f"ppo_turnbased_RED_ciclo{i+1}_v4")
 
-print("Entrenamiento turn-based finalizado.")
+print("Entrenamiento turn-based v4 finalizado.")
