@@ -30,7 +30,7 @@ class Soldier(Unit):
         if other_unit.unit_type == "Archer":
             return 50  # Mata a un Archer en 2 golpes
         else:
-            return 34  # Contra otro Soldier o Knight, 3 golpes
+            return 34  # Contra otro Soldier o Knight
 
 
 class Archer(Unit):
@@ -39,7 +39,10 @@ class Archer(Unit):
         self.movement = 3
 
     def get_attack_damage(self, other_unit):
-        return 25  # Necesita 4 golpes para matar cualquiera
+        if other_unit.unit_type == "Knight":
+            return 50  # Muy efectivo contra Knight
+        else:
+            return 25
 
 
 class Knight(Unit):
@@ -48,4 +51,7 @@ class Knight(Unit):
         self.movement = 4
 
     def get_attack_damage(self, other_unit):
-        return 30  # Más fuerte por defecto, 4 golpes o menos según enemigo
+        if other_unit.unit_type == "Soldier":
+            return 50  # Muy efectivo contra Soldier
+        else:
+            return 34

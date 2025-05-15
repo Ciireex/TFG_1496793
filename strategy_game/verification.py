@@ -1,60 +1,63 @@
-import numpy as np
-from sb3_contrib.ppo_mask import MaskablePPO
-from sb3_contrib.common.wrappers import ActionMasker
-from gym_strategy.envs.StrategyEnvCaptureMaskedDiscrete import StrategyEnvCaptureMaskedDiscrete
-import time
+import os
+import gymnasium as gym
+from stable_baselines3 import A2C
+from gym_strategy.envs.StrategyEnvSparteMinimal import StrategyEnv5x5Detailed
 
-def mask_fn(env):
-    return env._get_action_mask()
+class DualTeamEnvWrapper(gym.Wrapper):
+    def __init__(self, base_env, controlled_team):
+        super().__init__(base_env)
+        self.controlled_team = controlled_team
 
-def verificar_avanzado(model_path, partidas=1000):
-    base_env = StrategyEnvCaptureMaskedDiscrete()
-    env = ActionMasker(base_env, mask_fn)
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        while self.env.current_player != self.controlled_team:
+            _, _, done, _, _ = self.env.step(0)
+        return obs, info
 
-    model = MaskablePPO.load(model_path)
-
-    exitos = 0
-    turnos_totales_exito = []
-    turnos_totales_fallo = []
-
-    tiempos_inicio = time.time()
-
-    for partida in range(partidas):
-        obs, info = env.reset()
-        done = False
-        turn = 0
-
-        while not done:
-            mask = info["action_mask"]
-            action, _ = model.predict(obs, deterministic=True, action_masks=mask)
-            obs, reward, done, truncated, info = env.step(action)
-            turn += 1
-
-        if reward >= 1.0:
-            exitos += 1
-            turnos_totales_exito.append(turn)
+    def step(self, action):
+        if self.env.current_player == self.controlled_team:
+            obs, reward, terminated, truncated, info = self.env.step(action)
+            while not terminated and not truncated and self.env.current_player != self.controlled_team:
+                _, _, terminated, truncated, _ = self.env.step(0)
+            return obs, reward, terminated, truncated, info
         else:
-            turnos_totales_fallo.append(turn)
+            return self.env.step(0)
 
-    tiempo_total = time.time() - tiempos_inicio
+# Cargar modelos de ciclo 10 y 30
+blue_model = A2C.load("backups/a2c_blue_cycle30.zip")
+red_model = A2C.load("backups/a2c_red_cycle30.zip")
 
-    porcentaje_exito = (exitos / partidas) * 100
-    tiempo_medio_exito = np.mean(turnos_totales_exito) if turnos_totales_exito else 0
-    tiempo_medio_fallo = np.mean(turnos_totales_fallo) if turnos_totales_fallo else 0
+n_episodes = 100
+blue_wins = 0
+red_wins = 0
+empates = 0
 
-    print("\n📊 Resultados de la verificación:")
-    print(f"✅ Capturas exitosas: {exitos}/{partidas} ({porcentaje_exito:.2f}%)")
-    print(f"⏱️ Turnos medios (éxito): {tiempo_medio_exito:.2f}")
-    print(f"⏱️ Turnos medios (fallo): {tiempo_medio_fallo:.2f}")
-    print(f"⏳ Tiempo total verificación: {tiempo_total:.2f} segundos")
+for episode in range(n_episodes):
+    env = StrategyEnv5x5Detailed()
+    obs, _ = env.reset()
+    terminated = False
+    truncated = False
 
-    # Guardar resultados en archivo de texto
-    with open("verificacion_resultados.txt", "w") as f:
-        f.write("Resultados de la verificación:\n")
-        f.write(f"Capturas exitosas: {exitos}/{partidas} ({porcentaje_exito:.2f}%)\n")
-        f.write(f"Turnos medios (éxito): {tiempo_medio_exito:.2f}\n")
-        f.write(f"Turnos medios (fallo): {tiempo_medio_fallo:.2f}\n")
-        f.write(f"Tiempo total verificación: {tiempo_total:.2f} segundos\n")
+    while not terminated and not truncated:
+        obs = env._get_obs()
+        if env.current_player == 0:
+            action, _ = blue_model.predict(obs, deterministic=True)
+        else:
+            action, _ = red_model.predict(obs, deterministic=True)
+        obs, reward, terminated, truncated, info = env.step(action)
 
-if __name__ == "__main__":
-    verificar_avanzado("ppo_capture_masked_v11.zip", partidas=1000)
+    # Verificar ganador
+    alive_blue = any(u.is_alive() and u.team == 0 for u in env.units)
+    alive_red = any(u.is_alive() and u.team == 1 for u in env.units)
+
+    if alive_blue and not alive_red:
+        blue_wins += 1
+    elif alive_red and not alive_blue:
+        red_wins += 1
+    else:
+        empates += 1
+
+print("\nResultados tras 100 partidas:")
+print(f"Equipo Azul (Ciclo 10) gana: {blue_wins}")
+print(f"Equipo Rojo (Ciclo 30) gana: {red_wins}")
+print(f"Empates: {empates}")

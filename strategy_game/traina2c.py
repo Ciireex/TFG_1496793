@@ -1,8 +1,8 @@
 import os
 from stable_baselines3 import A2C
 from stable_baselines3.common.callbacks import BaseCallback
-from gym_strategy.envs.StrategyEnvA2CMaskable import StrategyEnvA2CMaskable
-from gym_strategy.core.Unit import Soldier, Archer
+from gym_strategy.envs.StrategyEnvSoldiersOnly import StrategyEnvSoldiersOnly
+from gym_strategy.core.Unit import Soldier
 import gymnasium as gym
 
 # Callback para logging
@@ -43,18 +43,14 @@ class StrategyWrapper(gym.Wrapper):
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
 
-# Equipos
-blue_team = [Soldier, Soldier, Archer]
-red_team = [Archer, Soldier, Soldier]
-
 # Crear entornos
 
 def make_env_blue():
-    env = StrategyEnvA2CMaskable(blue_team=blue_team, red_team=red_team)
+    env = StrategyEnvSoldiersOnly()
     return StrategyWrapper(env, team_controlled=0)
 
 def make_env_red():
-    env = StrategyEnvA2CMaskable(blue_team=blue_team, red_team=red_team)
+    env = StrategyEnvSoldiersOnly()
     return StrategyWrapper(env, team_controlled=1)
 
 # Crear modelos
@@ -93,4 +89,4 @@ for i in range(10):
     model_red.learn(total_timesteps=100_000, callback=LogCallback(), progress_bar=True)
     model_red.save(os.path.join(output_dir, f"a2c_RED_ciclo{i+1}"))
 
-print("Entrenamiento turn-based con A2C finalizado.") 
+print("Entrenamiento turn-based con A2C finalizado.")

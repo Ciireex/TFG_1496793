@@ -35,22 +35,17 @@ class Renderer:
                     pygame.draw.rect(self.screen, (255, 255, 100), rect)  # Amarillo fuerte
 
                     if capture_progress is not None:
-                        if isinstance(capture_progress, int):
-                            progress = capture_progress
-                        elif isinstance(capture_progress, list):
-                            progress = capture_progress[capturing_team]
-                        else:
-                            progress = 0
-
-                        filled = int((progress / capture_max) * cell_height)
-                        bar_color = (0, 0, 255) if capturing_team == 0 else (255, 0, 0)
-                        bar_rect = pygame.Rect(
-                            x * cell_width + cell_width // 3,
-                            (y + 1) * cell_height - filled,
-                            cell_width // 3,
-                            filled
-                        )
-                        pygame.draw.rect(self.screen, bar_color, bar_rect)
+                        for team in [0, 1]:
+                            progress = capture_progress[team]
+                            bar_width = (cell_width - 10) // 2
+                            filled = int((progress / capture_max) * bar_width)
+                            bar_height = 5
+                            bar_color = (0, 0, 255) if team == 0 else (255, 0, 0)
+                            x_offset = x * cell_width + 5 + (0 if team == 0 else bar_width + 2)
+                            bar_rect = pygame.Rect(x_offset, y * cell_height + 4, filled, bar_height)
+                            bg_rect = pygame.Rect(x_offset, y * cell_height + 4, bar_width, bar_height)
+                            pygame.draw.rect(self.screen, (100, 100, 100), bg_rect)
+                            pygame.draw.rect(self.screen, bar_color, bar_rect)
                 else:
                     pygame.draw.rect(self.screen, (255, 255, 255), rect)
 
@@ -69,31 +64,39 @@ class Renderer:
             margin = int(cell_width * 0.15)
 
             if unit.unit_type == "Soldier":
-                # Soldier ➔ cuadrado
                 unit_rect = pygame.Rect(
                     x_pix + margin,
-                    y_pix + margin,
+                    y_pix + margin + 8,
                     cell_width - 2 * margin,
-                    cell_height - 2 * margin
+                    cell_height - 2 * margin - 8
                 )
                 pygame.draw.rect(self.screen, color, unit_rect)
 
             elif unit.unit_type == "Archer":
-                # Archer ➔ círculo
                 center_x = x_pix + cell_width // 2
-                center_y = y_pix + cell_height // 2
+                center_y = y_pix + cell_height // 2 + 4
                 radius = min(cell_width, cell_height) // 3
                 pygame.draw.circle(self.screen, color, (center_x, center_y), radius)
 
-            # Barra de vida encima
+            elif unit.unit_type == "Knight":
+                cx = x_pix + cell_width // 2
+                cy = y_pix + cell_height // 2
+                size = min(cell_width, cell_height) // 2 - 4
+                points = [
+                    (cx, cy - size),  # Arriba
+                    (cx - size, cy + size),  # Abajo izquierda
+                    (cx + size, cy + size)   # Abajo derecha
+                ]
+                pygame.draw.polygon(self.screen, color, points)
+
             max_hp = 100
             hp_ratio = max(0, unit.health / max_hp)
             bar_width = cell_width - 2 * margin
             bar_height = 6
             bar_x = x_pix + margin
-            bar_y = y_pix + 4
+            bar_y = y_pix + 4 + 8
             bar_color = (0, 200, 0) if hp_ratio > 0.5 else (255, 200, 0) if hp_ratio > 0.25 else (200, 0, 0)
-            pygame.draw.rect(self.screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height))  # Fondo barra
+            pygame.draw.rect(self.screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(self.screen, bar_color, (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
 
         pygame.display.flip()

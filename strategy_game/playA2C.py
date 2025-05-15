@@ -2,8 +2,8 @@ import time
 import pygame
 from stable_baselines3 import A2C
 
-from gym_strategy.envs.StrategyEnvA2CMaskable import StrategyEnvA2CMaskable
-from gym_strategy.core.Unit import Soldier, Archer
+from gym_strategy.envs.StrategyEnvSoldiersOnly import StrategyEnvSoldiersOnly
+from gym_strategy.core.Unit import Soldier
 from gym_strategy.core.Renderer import Renderer
 
 # Wrapper de evaluación para turnos por unidad
@@ -21,10 +21,7 @@ class StrategyEvalWrapper:
             return 0
 
 if __name__ == "__main__":
-    blue_team = [Soldier, Soldier, Archer]
-    red_team = [Archer, Soldier, Soldier]
-
-    env = StrategyEnvA2CMaskable(blue_team=blue_team, red_team=red_team)
+    env = StrategyEnvSoldiersOnly()
     env_base = env.unwrapped
 
     renderer = Renderer(width=60 * 9, height=60 * 6, board_size=env_base.board_size)
@@ -50,9 +47,8 @@ if __name__ == "__main__":
     while not done:
         current_team = "Azul" if env_base.current_player == 0 else "Rojo"
         current_agent = blue_agent if env_base.current_player == 0 else red_agent
-        phase = env_base.phase
 
-        print(f"\nTurno del equipo {current_team} - Unidad {env_base.active_unit_index + 1} ({phase})")
+        print(f"\nTurno del equipo {current_team} - Unidad {env_base.active_unit_index + 1}")
         units = [u for u in env_base.units if u.team == env_base.current_player and u.is_alive()]
         if env_base.active_unit_index < len(units):
             unit = units[env_base.active_unit_index]
@@ -61,14 +57,13 @@ if __name__ == "__main__":
             break
 
         action = current_agent.get_action(obs)
+        move_id = action // 5
+        atk_id = action % 5
 
-        if phase == "move":
-            move_str = ["quedarse", "arriba", "abajo", "izquierda", "derecha"][action]
-            print(f" - {unit.unit_type} en {unit.position} se mueve: {move_str}")
-        else:
-            direction = ["arriba", "abajo", "izquierda", "derecha"]
-            dir_str = direction[action] if action < len(direction) else "pasar"
-            print(f" - {unit.unit_type} en {unit.position} ataca hacia: {dir_str}")
+        move_str = ["quieto", "↑", "↓", "←", "→"][move_id]
+        atk_str = ["pasar", "↑", "↓", "←", "→"][atk_id]
+
+        print(f" - {unit.unit_type} en {unit.position} se mueve: {move_str} y ataca: {atk_str}")
 
         obs, reward, done, _, info = env.step(action)
 

@@ -1,5 +1,0 @@
-Resultados de la verificación:
-Capturas exitosas: 848/1000 (84.80%)
-Turnos medios (éxito): 7.96
-Turnos medios (fallo): 50.00
-Tiempo total verificación: 10.09 segundos
