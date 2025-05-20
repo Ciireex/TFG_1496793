@@ -6,6 +6,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from gym_strategy.envs.StrategyEnvPPOA2C import StrategyEnvPPOA2C
 import gymnasium as gym
 
+# Wrapper para distinguir qué equipo entrena
 class DualTeamEnvWrapper(gym.Wrapper):
     def __init__(self, base_env, controlled_team):
         super().__init__(base_env)
@@ -46,17 +47,19 @@ def evaluate_agent(model, team, n_episodes=5):
             victories += 1
     return np.mean(rewards), victories
 
-# Configuración
-blue_path = "models/ppo_blue_ppo_a2c_v3.zip"
-red_path = "models/ppo_red_ppo_a2c_v3.zip"
-backup_dir = "backups_ppo_ppo_a2c_v3"
+# === Configuración de nombres ===
+exp_name = "ppov10"
+blue_path = f"models/ppo_blue_{exp_name}.zip"
+red_path = f"models/ppo_red_{exp_name}.zip"
+backup_dir = f"backups_{exp_name}"
 os.makedirs(backup_dir, exist_ok=True)
 
+# === Crear modelos PPO ===
 blue_model = PPO(
     "MlpPolicy",
     DummyVecEnv([make_env(0)]),
     verbose=1,
-    tensorboard_log="logs/ppo_blue_ppo_a2c_v3",
+    tensorboard_log=f"logs/ppo_blue_{exp_name}",
     ent_coef=0.01,
     device="cpu"
 )
@@ -65,31 +68,31 @@ red_model = PPO(
     "MlpPolicy",
     DummyVecEnv([make_env(1)]),
     verbose=1,
-    tensorboard_log="logs/ppo_red_ppo_a2c_v3",
+    tensorboard_log=f"logs/ppo_red_{exp_name}",
     ent_coef=0.01,
     device="cpu"
 )
 
+# === Entrenamiento por ciclos ===
 start_cycle = 1
 end_cycle = 10
 
 for cycle in range(start_cycle, end_cycle + 1):
-    steps_per_cycle = 10000 if cycle == 1 else 100000
-
-    print(f"\n==== CICLO {cycle} ({steps_per_cycle} pasos) ====\n")
+    steps = 10_000 if cycle == 1 else 100_000
+    print(f"\n==== CICLO {cycle} ({steps} pasos) ====\n")
 
     print("→ Entrenando equipo AZUL...")
-    blue_model.learn(total_timesteps=steps_per_cycle, reset_num_timesteps=False)
+    blue_model.learn(total_timesteps=steps, reset_num_timesteps=False)
     blue_model.save(blue_path)
-    shutil.copy(blue_path, os.path.join(backup_dir, f"ppo_blue_ppo_a2c_v3_cycle{cycle}.zip"))
+    shutil.copy(blue_path, os.path.join(backup_dir, f"ppo_blue_{exp_name}_cycle{cycle}.zip"))
 
     mean_rew, victories = evaluate_agent(blue_model, team=0)
     print(f"✔ Azul: recompensa media = {mean_rew:.2f}, victorias = {victories}/5\n")
 
     print("→ Entrenando equipo ROJO...")
-    red_model.learn(total_timesteps=steps_per_cycle, reset_num_timesteps=False)
+    red_model.learn(total_timesteps=steps, reset_num_timesteps=False)
     red_model.save(red_path)
-    shutil.copy(red_path, os.path.join(backup_dir, f"ppo_red_ppo_a2c_v3_cycle{cycle}.zip"))
+    shutil.copy(red_path, os.path.join(backup_dir, f"ppo_red_{exp_name}_cycle{cycle}.zip"))
 
     mean_rew, victories = evaluate_agent(red_model, team=1)
     print(f"✔ Rojo: recompensa media = {mean_rew:.2f}, victorias = {victories}/5\n")

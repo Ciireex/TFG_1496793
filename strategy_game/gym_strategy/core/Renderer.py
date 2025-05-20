@@ -11,45 +11,31 @@ class Renderer:
         pygame.display.set_caption("Strategy Game")
 
     def draw_board(self, units, blocked_positions=None,
-                   capture_point=None, capture_progress=None, capture_max=3, capturing_team=None):
+                   active_unit=None, highlight_attack=False,
+                   terrain=None, capture_point=None,
+                   capture_score=None, max_capture=5):
 
-        pygame.event.pump()  # 🔥 Procesar eventos para evitar congelamiento
-
-        self.screen.fill((255, 255, 255))  # fondo blanco
+        pygame.event.pump()
+        self.screen.fill((255, 255, 255))
         cell_width = self.width // self.board_size[0]
         cell_height = self.height // self.board_size[1]
 
-        # Pintar celdas
+        # Dibujar casillas
         for x in range(self.board_size[0]):
             for y in range(self.board_size[1]):
                 rect = pygame.Rect(x * cell_width, y * cell_height, cell_width, cell_height)
 
-                # Obstáculos
+                if terrain is not None and terrain[x, y] == 1:
+                    pygame.draw.rect(self.screen, (144, 238, 144), rect)  # verde claro
+
                 if blocked_positions and (x, y) in blocked_positions:
-                    pygame.draw.rect(self.screen, (100, 100, 100), rect)  # Gris oscuro
-                    pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)  # Borde negro fino
+                    pygame.draw.rect(self.screen, (100, 100, 100), rect)
+                    pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
                     continue
 
-                # Punto de captura
-                if capture_point == (x, y):
-                    pygame.draw.rect(self.screen, (255, 255, 100), rect)  # Amarillo fuerte
+                if capture_point and (x, y) == capture_point:
+                    pygame.draw.rect(self.screen, (255, 223, 100), rect)  # dorado claro
 
-                    if capture_progress is not None:
-                        for team in [0, 1]:
-                            progress = capture_progress[team]
-                            bar_width = (cell_width - 10) // 2
-                            filled = int((progress / capture_max) * bar_width)
-                            bar_height = 5
-                            bar_color = (0, 0, 255) if team == 0 else (255, 0, 0)
-                            x_offset = x * cell_width + 5 + (0 if team == 0 else bar_width + 2)
-                            bar_rect = pygame.Rect(x_offset, y * cell_height + 4, filled, bar_height)
-                            bg_rect = pygame.Rect(x_offset, y * cell_height + 4, bar_width, bar_height)
-                            pygame.draw.rect(self.screen, (100, 100, 100), bg_rect)
-                            pygame.draw.rect(self.screen, bar_color, bar_rect)
-                else:
-                    pygame.draw.rect(self.screen, (255, 255, 255), rect)
-
-                # Bordes de todas las casillas
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
         # Dibujar unidades
@@ -64,31 +50,26 @@ class Renderer:
             margin = int(cell_width * 0.15)
 
             if unit.unit_type == "Soldier":
-                unit_rect = pygame.Rect(
-                    x_pix + margin,
-                    y_pix + margin + 8,
-                    cell_width - 2 * margin,
-                    cell_height - 2 * margin - 8
-                )
+                unit_rect = pygame.Rect(x_pix + margin, y_pix + margin + 8,
+                                        cell_width - 2 * margin, cell_height - 2 * margin - 8)
                 pygame.draw.rect(self.screen, color, unit_rect)
-
             elif unit.unit_type == "Archer":
                 center_x = x_pix + cell_width // 2
                 center_y = y_pix + cell_height // 2 + 4
                 radius = min(cell_width, cell_height) // 3
                 pygame.draw.circle(self.screen, color, (center_x, center_y), radius)
-
             elif unit.unit_type == "Knight":
                 cx = x_pix + cell_width // 2
                 cy = y_pix + cell_height // 2
                 size = min(cell_width, cell_height) // 2 - 4
-                points = [
-                    (cx, cy - size),  # Arriba
-                    (cx - size, cy + size),  # Abajo izquierda
-                    (cx + size, cy + size)   # Abajo derecha
-                ]
+                points = [(cx, cy - size), (cx - size, cy + size), (cx + size, cy + size)]
                 pygame.draw.polygon(self.screen, color, points)
 
+            # Unidad activa
+            if (active_unit and unit.position == active_unit.position and unit.team == active_unit.team):
+                pygame.draw.rect(self.screen, (255, 165, 0), (x_pix + 2, y_pix + 2, cell_width - 4, cell_height - 4), 3)
+
+            # Barra de vida
             max_hp = 100
             hp_ratio = max(0, unit.health / max_hp)
             bar_width = cell_width - 2 * margin
@@ -99,8 +80,14 @@ class Renderer:
             pygame.draw.rect(self.screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(self.screen, bar_color, (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
 
+        # Dibujar puntuación de captura
+        if capture_score:
+            font = pygame.font.SysFont(None, 26)
+            score_text = font.render(f"Capturas AZUL: {capture_score[0]} / ROJO: {capture_score[1]}", True, (0, 0, 0))
+            self.screen.blit(score_text, (10, self.height - 30))
+
         pygame.display.flip()
 
     def get_image(self):
         image = pygame.surfarray.array3d(self.screen)
-        return np.transpose(image, (1, 0, 2))  # [ancho, alto, canal] -> [alto, ancho, canal]
+        return np.transpose(image, (1, 0, 2))
