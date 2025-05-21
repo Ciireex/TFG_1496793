@@ -1,212 +1,261 @@
 import gymnasium as gym
-import numpy as np
 from gymnasium import spaces
-from gym_strategy.core.Board import Board
-from gym_strategy.core.Unit import Soldier
-from gym_strategy.core.Renderer import Renderer
+import numpy as np
 import random
+import networkx as nx
+from gym_strategy.core.Unit import Soldier, Archer, Knight
 
 class StrategyEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, use_obstacles=True):
         super().__init__()
-        self.rows, self.cols = 6, 4
-        self.board = Board(size=(self.rows, self.cols))
-        self.renderer = Renderer(width=600, height=400, board_size=(self.rows, self.cols))
-
-        self.units = []
-        self.current_turn = 0
-        self.unit_index = 0
-        self.turn_units = []
-        self.turn_count = 0
-        self.max_turns = 50
-        self.no_progress_turns = 0
-
-        self.action_space = spaces.MultiDiscrete([5, 4, 2])
-        self.observation_space = spaces.Box(
-            low=np.array([[[-1.0, 0.0, 0.0, 0.0]] * self.cols] * self.rows, dtype=np.float32),
-            high=np.array([[[1.0, 100.0, 3.0, 1.0]] * self.cols] * self.rows, dtype=np.float32),
-            dtype=np.float32
-        )
-
+        self.board_size = (7, 5)
+        self.capture_point = (3, 2)
+        self.max_turns = 60
+        self.capture_turns_required = 3
+        self.unit_types = [Soldier, Soldier, Archer, Knight] * 2
+        self.num_units = 8
+        self.action_space = spaces.Discrete(5)
+        self.observation_space = spaces.Box(0, 1, shape=(14, 7, 5), dtype=np.float32)
+        self.use_obstacles = use_obstacles
         self.reset()
-
-    def step(self, action):
-        move_dist, direction, sec_action = action
-
-        if not self.turn_units or self.unit_index >= len(self.turn_units):
-            self.turn_units = [u for u in self.units if u.team == self.current_turn]
-
-        if not self.turn_units:
-            winner = 1 - self.current_turn
-            print(f"¡El equipo {winner} ha ganado! (el equipo {self.current_turn} no tiene unidades)")
-            return self._get_obs(), -40, True, False, {}
-
-        unit = self.turn_units[self.unit_index]
-        reward = -0.1
-        print(f"{unit.unit_type} del equipo {unit.team} en {unit.position} → mueve {move_dist} hacia {direction}, acción {sec_action}")
-
-        # Distancia antes de mover
-        before_move_dist = self.closest_enemy_distance(unit)
-
-        move_result = self.move_unit(unit, move_dist, direction)
-        reward += move_result
-
-        # Distancia después
-        after_move_dist = self.closest_enemy_distance(unit)
-        if after_move_dist < before_move_dist:
-            reward += 1.0  # Bonus por acercarse
-
-        if sec_action == 1:
-            # Había enemigos cerca?
-            enemy_nearby = any(
-                abs(unit.position[0] - u.position[0]) + abs(unit.position[1] - u.position[1]) == 1
-                and u.team != unit.team
-                for u in self.units
-            )
-
-            if not enemy_nearby:
-                print("Ataque al aire SIN enemigos adyacentes.")
-
-            attack_result = self.try_attack(unit)
-            reward += attack_result
-
-            # Penalización fuerte por atacar sin éxito
-            if attack_result <= 0:
-                reward -= 5
-                if not enemy_nearby:
-                    reward -= 2  # Penaliza aún más si ni siquiera había razón
-        else:
-            # Si decide no atacar y no hay enemigos cerca, pequeño refuerzo
-            if self.closest_enemy_distance(unit) > 1:
-                reward += 0.1
-
-        if reward > 1:
-            self.no_progress_turns = 0
-        else:
-            self.no_progress_turns += 1
-
-        self.unit_index += 1
-        if self.unit_index >= len(self.turn_units):
-            self.unit_index = 0
-            self.current_turn = 1 - self.current_turn
-            self.turn_units = [u for u in self.units if u.team == self.current_turn]
-            self.turn_count += 1
-            print(f"Cambio de turno: Ahora juega el equipo {self.current_turn}.")
-
-        self.render()
-
-        terminated = self.check_game_over()
-        if terminated:
-            winner = 1 - self.current_turn
-            print(f"¡El equipo {winner} ha ganado!")
-            reward += 100 if unit.team == winner else -40
-
-        truncated = self.turn_count >= self.max_turns or self.no_progress_turns >= 12
-        if truncated:
-            print("Fin por turnos o falta de progreso. Nadie ha ganado.")
-            reward -= 20
-
-        return self._get_obs(), reward, terminated, truncated, {}
-
-    def move_unit(self, unit, dist, direction):
-        max_range = getattr(unit, "move_range", 2)
-        if dist == 0 or dist > max_range:
-            return -0.5
-
-        dx, dy = 0, 0
-        if direction == 0: dx = -1
-        elif direction == 1: dx = 1
-        elif direction == 2: dy = -1
-        elif direction == 3: dy = 1
-
-        x, y = unit.position
-        for _ in range(dist):
-            new_x, new_y = x + dx, y + dy
-            if not (0 <= new_x < self.rows and 0 <= new_y < self.cols):
-                return -1
-            if any(u.position == (new_x, new_y) for u in self.units):
-                return -1
-            x, y = new_x, new_y
-
-        unit.move((x, y))
-        return 0.2 * dist
-
-    def try_attack(self, unit):
-        x, y = unit.position
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            tx, ty = x + dx, y + dy
-            if 0 <= tx < self.rows and 0 <= ty < self.cols:
-                for target in self.units:
-                    if target.position == (tx, ty) and target.team != unit.team:
-                        target.health -= 34
-                        if target.health <= 0:
-                            self.units.remove(target)
-                            print(f"{unit.unit_type} eliminó a un enemigo en {(tx, ty)}")
-                            print(f"Quedan {sum(u.team == 0 for u in self.units)} vs {sum(u.team == 1 for u in self.units)} unidades.")
-                            return 30
-                        print(f"{unit.unit_type} dañó a un enemigo en {(tx, ty)}")
-                        return 10
-        print(f"{unit.unit_type} no encontró enemigos para atacar.")
-        return -1
-
-    def closest_enemy_distance(self, unit):
-        x1, y1 = unit.position
-        enemy_positions = [u.position for u in self.units if u.team != unit.team]
-        if not enemy_positions:
-            return float("inf")
-        return min(abs(x1 - x2) + abs(y1 - y2) for (x2, y2) in enemy_positions)
-
-    def check_game_over(self):
-        return not any(u.team == 0 for u in self.units) or not any(u.team == 1 for u in self.units)
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.turn_count = 0
-        self.no_progress_turns = 0
+        self.current_player = 0
+        self.unit_index_per_team = {0: 0, 1: 0}
+        self.phase = "move"
+        self.capture_progress = [0, 0]
+        self.attacked_unit_on_point_by_team = [False, False]  # 🔄 Mantenerlo activo
+        self.units = []
 
-        def generate_random_positions(top_half):
-            valid_positions = [
-                (x, y) for x in (range(self.rows // 2) if top_half else range(self.rows // 2, self.rows))
-                for y in range(self.cols)
-            ]
-            return random.sample(valid_positions, 3)
+        blue_spawns = [(0, 1), (0, 2), (0, 3), (0, 4)]
+        red_spawns = [(6, 1), (6, 2), (6, 3), (6, 4)]
 
-        team0_positions = generate_random_positions(top_half=True)
-        team1_positions = generate_random_positions(top_half=False)
+        for i in range(8):
+            team = 0 if i < 4 else 1
+            pos = blue_spawns[i] if team == 0 else red_spawns[i - 4]
+            unit = self.unit_types[i](position=pos, team=team)
+            self.units.append(unit)
 
-        self.board = Board(size=(self.rows, self.cols))
-        self.units = [Soldier(pos, team=0) for pos in team0_positions] + \
-                        [Soldier(pos, team=1) for pos in team1_positions]
-        for unit in self.units:
-            self.board.add_unit(unit)
+        if self.use_obstacles:
+            self.obstacles = self._generate_obstacles([u.position for u in self.units])
+        else:
+            self.obstacles = np.zeros(self.board_size, dtype=np.int8)
 
-        # Turno inicial aleatorio
-        self.current_turn = random.choice([0, 1])
-        self.unit_index = 0
-        self.turn_units = [u for u in self.units if u.team == self.current_turn]
-
-        print(f"Semilla usada en reset: {seed if seed is not None else 'aleatoria'} — Empieza el equipo {self.current_turn}")
         return self._get_obs(), {}
 
-    def render(self, mode="human"):
-        if hasattr(self, "renderer"):
-            import pygame
-            pygame.event.pump()
-            self.renderer.draw_board(self.units)
+    def step(self, action):
+        reward = 0.0
+        terminated = False
 
+        dirs = [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]
+        team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        if not team_units:
+            self._advance_turn()
+            return self._get_obs(), reward, False, False, {}
+
+        index = self.unit_index_per_team[self.current_player]
+        if index >= len(team_units):
+            self._advance_turn()
+            team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+            index = self.unit_index_per_team[self.current_player]
+            if not team_units:
+                return self._get_obs(), reward, False, False, {}
+
+        unit = team_units[index]
+        was_on_point = unit.position == self.capture_point
+
+        if self.phase == "move":
+            dx, dy = dirs[action]
+            new_pos = (unit.position[0] + dx, unit.position[1] + dy)
+            if self._valid_move(new_pos):
+                unit.move(new_pos)
+                if was_on_point and new_pos != self.capture_point:
+                    reward -= 1.0
+            else:
+                reward -= 0.5
+            self.phase = "attack"
+            return self._get_obs(), reward, False, False, {}
+
+        dx, dy = dirs[action]
+        attacked = False
+        for dist in range(1, 4 if unit.unit_type == "Archer" else 2):
+            tx, ty = unit.position[0] + dx * dist, unit.position[1] + dy * dist
+            if not self._valid_coord((tx, ty)):
+                break
+            for enemy in self.units:
+                if enemy.team != self.current_player and enemy.is_alive() and enemy.position == (tx, ty):
+                    bonus = 0.0
+                    if unit.unit_type == "Soldier" and enemy.unit_type == "Archer":
+                        bonus = 0.2
+                    elif unit.unit_type == "Archer" and enemy.unit_type == "Knight":
+                        bonus = 0.2
+                    elif unit.unit_type == "Knight" and enemy.unit_type == "Soldier":
+                        bonus = 0.2
+
+                    if unit.unit_type == "Knight":
+                        px, py = enemy.position[0] + dx, enemy.position[1] + dy
+                        if self._valid_move((px, py)):
+                            enemy.move((px, py))
+                            enemy.health -= unit.get_attack_damage(enemy)
+                        else:
+                            enemy.health -= unit.get_attack_damage(enemy) + 10
+                    else:
+                        enemy.health -= unit.get_attack_damage(enemy)
+
+                    reward += 0.5 + bonus
+
+                    # 🔄 Reinicio de captura si se ataca al capturador
+                    if enemy.position == self.capture_point and unit.position != self.capture_point:
+                        self.attacked_unit_on_point_by_team[enemy.team] = True
+
+                    if not enemy.is_alive():
+                        reward += 2.0
+                    attacked = True
+                    break
+            if attacked:
+                break
+
+        if not attacked:
+            reward -= 0.5
+
+        self._advance_phase()
+
+        if self.phase == "move" and self.unit_index_per_team[self.current_player] == 0:
+            team = self.current_player
+            on_point_unit = next((u for u in self.units if u.team == team and u.is_alive() and u.position == self.capture_point), None)
+            if on_point_unit:
+                if self.attacked_unit_on_point_by_team[team]:  # 🔄 Si fue atacado, se reinicia progreso
+                    self.capture_progress[team] = 0
+                    self.attacked_unit_on_point_by_team[team] = False
+                else:
+                    self.capture_progress[team] += 1
+            else:
+                self.capture_progress[team] = 0
+                self.attacked_unit_on_point_by_team[team] = False
+
+            if self.capture_progress[team] >= self.capture_turns_required:
+                reward += 3.0
+                terminated = True
+
+        teams_alive = set(u.team for u in self.units if u.is_alive())
+        if len(teams_alive) == 1:
+            if self.current_player in teams_alive:
+                reward += 3.0
+            terminated = True
+
+        if self.turn_count >= self.max_turns:
+            reward -= 1.5
+            terminated = True
+
+        return self._get_obs(), reward, terminated, False, {}
+
+    # Resto del entorno no ha cambiado
+    def _advance_phase(self):
+        if self.phase == "move":
+            self.phase = "attack"
+        else:
+            self.phase = "move"
+            self.unit_index_per_team[self.current_player] += 1
+            team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+            if self.unit_index_per_team[self.current_player] >= len(team_units):
+                self._advance_turn()
+
+    def _advance_turn(self):
+        self.current_player = 1 - self.current_player
+        self.unit_index_per_team[self.current_player] = 0
+        self.turn_count += 1
+        self.phase = "move"
+
+    def _valid_coord(self, pos):
+        x, y = pos
+        return 0 <= x < self.board_size[0] and 0 <= y < self.board_size[1]
+
+    def _valid_move(self, pos):
+        return self._valid_coord(pos) and self.obstacles[pos] == 0 and not any(u.position == pos and u.is_alive() for u in self.units)
+    
     def _get_obs(self):
-        obs = np.zeros((self.rows, self.cols, 4), dtype=np.float32)
-        active_unit = None
-        if self.units:
-            team_units = [u for u in self.units if u.team == self.current_turn]
-            if team_units and self.unit_index < len(team_units):
-                active_unit = team_units[self.unit_index]
+        obs = np.zeros((14, self.board_size[0], self.board_size[1]), dtype=np.float32)
+
+        for x in range(self.board_size[0]):
+            for y in range(self.board_size[1]):
+                if self.obstacles[x, y]:
+                    obs[0, x, y] = 1.0
 
         for unit in self.units:
-            x, y = unit.position
-            obs[x, y, 0] = 1 if unit.team == 0 else -1
-            obs[x, y, 1] = unit.health
-            obs[x, y, 2] = {"Soldier": 1, "Archer": 2, "Knight": 3}.get(unit.unit_type, 0)
-            obs[x, y, 3] = 1 if unit == active_unit else 0
+            if unit.is_alive():
+                x, y = unit.position
+                idx = 1 if unit.team == self.current_player else 4
+                type_idx = 2 if unit.team == self.current_player else 5
+                hp_idx = 3 if unit.team == self.current_player else 6
+                obs[idx, x, y] = 1.0
+                obs[type_idx, x, y] = 1.0 if unit.unit_type == "Archer" else 0.75 if unit.unit_type == "Knight" else 0.5
+                obs[hp_idx, x, y] = unit.health / 100.0
 
+        my_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        idx = self.unit_index_per_team[self.current_player]
+        if idx < len(my_units):
+            ux, uy = my_units[idx].position
+            obs[7, ux, uy] = 1.0
+            dxs = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+            for dx, dy in dxs:
+                for dist in range(1, 4 if my_units[idx].unit_type == "Archer" else 2):
+                    tx, ty = ux + dx * dist, uy + dy * dist
+                    if not self._valid_coord((tx, ty)):
+                        break
+                    for enemy in self.units:
+                        if enemy.team != self.current_player and enemy.is_alive() and enemy.position == (tx, ty):
+                            obs[13, ux, uy] = 1.0
+
+        obs[8, :, :] = 1.0 if self.phase == "attack" else 0.0
+        obs[9, :, :] = float(self.current_player)
+        cx, cy = self.capture_point
+        obs[10, cx, cy] = 1.0
+        obs[11, :, :] = self.turn_count / self.max_turns
+
+        for x in range(self.board_size[0]):
+            for y in range(self.board_size[1]):
+                if self._valid_move((x, y)):
+                    obs[12, x, y] = 1.0
+
+        # obs[13] ya lo usaste para enemigo en rango
         return obs
+
+    def _generate_obstacles(self, units_positions, obstacle_count=4):
+        max_attempts = 100
+        half_width = self.board_size[0] // 2
+        left_half = [(x, y) for x in range(1, half_width - 1)  # evitar columnas 0 y spawn
+                    for y in range(1, self.board_size[1] - 1)]
+        right_half = [(x, y) for x in range(half_width + 1, self.board_size[0] - 1)
+                    for y in range(1, self.board_size[1] - 1)]
+        
+        for _ in range(max_attempts):
+            obstacles = np.zeros(self.board_size, dtype=np.int8)
+            occupied = set(units_positions + [self.capture_point])
+
+            valid_left = [pos for pos in left_half if pos not in occupied]
+            valid_right = [pos for pos in right_half if pos not in occupied]
+
+            if len(valid_left) < obstacle_count // 2 or len(valid_right) < obstacle_count // 2:
+                continue
+
+            sampled_left = random.sample(valid_left, obstacle_count // 2)
+            sampled_right = random.sample(valid_right, obstacle_count // 2)
+            sampled = sampled_left + sampled_right
+
+            for x, y in sampled:
+                obstacles[x, y] = 1
+
+            # Comprobamos conectividad hacia el punto de captura desde cada unidad
+            G = nx.grid_2d_graph(*self.board_size)
+            for x, y in sampled:
+                G.remove_node((x, y))
+
+            try:
+                if all(nx.has_path(G, pos, self.capture_point) for pos in units_positions):
+                    return obstacles
+            except:
+                continue
+
+        raise Exception("No se pudo generar un mapa equilibrado con obstáculos.")
