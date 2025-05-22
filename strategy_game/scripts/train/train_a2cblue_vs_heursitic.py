@@ -36,7 +36,7 @@ class DualTeamEnvWrapper(gym.Wrapper):
         return obs, reward, terminated, truncated, info
 
 # === FASE 1: Sin obstáculos ===
-print("🏁 Entrenando sin obstáculos...")
+print("🏁 Entrenando sin obstáculos (A2C)...")
 env_no_obs = DummyVecEnv([
     lambda: DualTeamEnvWrapper(StrategyEnv(use_obstacles=False), controlled_team=0)
 ])
@@ -44,13 +44,13 @@ model = A2C(
     "MlpPolicy",
     env_no_obs,
     verbose=1,
-    tensorboard_log="./logs/a2cblue_vs_heuristic_curriculum/",
-    device="cpu"  # 👈 ENTRENAMIENTO FORZADO EN CPU
+    tensorboard_log="./logs/a2cblue_vs_heuristic_curriculum_v2/",
+    device="cpu"
 )
 model.learn(total_timesteps=1_000_000)
 
 # === FASE 2: Con obstáculos ===
-print("🏁 Entrenando con obstáculos...")
+print("🏁 Entrenando con obstáculos (A2C)...")
 env_with_obs = DummyVecEnv([
     lambda: DualTeamEnvWrapper(StrategyEnv(use_obstacles=True), controlled_team=0)
 ])
@@ -58,6 +58,6 @@ model.set_env(env_with_obs)
 model.learn(total_timesteps=1_000_000)
 
 # Guardar modelo final
-model.save("models/a2cblue_vs_heuristic_curriculum_v1")
+model.save("models/a2cblue_vs_heuristic_curriculum_v2")
 
-print("\n✅ ENTRENAMIENTO COMPLETADO CON A2C (AZUL) VS HEURÍSTICA ✅")
+print("\n✅ ENTRENAMIENTO COMPLETADO A2C AZUL VS HEURÍSTICA (v2) ✅")

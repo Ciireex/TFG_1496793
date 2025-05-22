@@ -259,3 +259,50 @@ class StrategyEnv(gym.Env):
                 continue
 
         raise Exception("No se pudo generar un mapa equilibrado con obstáculos.")
+    
+    def valid_action_mask(self):
+        mask = np.zeros(self.action_space.n, dtype=bool)
+
+        dirs = [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]  # pasar, izq, der, arriba, abajo
+
+        team_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        if not team_units:
+            mask[0] = True
+            return mask
+
+        idx = self.unit_index_per_team[self.current_player]
+        if idx >= len(team_units):
+            mask[0] = True
+            return mask
+
+        unit = team_units[idx]
+
+        if self.phase == "move":
+            for i, (dx, dy) in enumerate(dirs):
+                new_pos = (unit.position[0] + dx, unit.position[1] + dy)
+                if i == 0:
+                    mask[i] = True  # pasar siempre permitido
+                elif self._valid_coord(new_pos) and self._valid_move(new_pos):
+                    mask[i] = True
+
+        elif self.phase == "attack":
+            attack_range = 3 if unit.unit_type == "Archer" else 1
+            for i, (dx, dy) in enumerate(dirs):
+                if i == 0:
+                    continue  # pasar solo si no hay enemigo en rango
+                for dist in range(1, attack_range + 1):
+                    tx, ty = unit.position[0] + dx * dist, unit.position[1] + dy * dist
+                    if not self._valid_coord((tx, ty)):
+                        break
+                    for enemy in self.units:
+                        if enemy.team != self.current_player and enemy.is_alive() and enemy.position == (tx, ty):
+                            mask[i] = True
+                            break
+                    if mask[i]:
+                        break
+            if not any(mask[1:]):  # sin enemigos en rango → solo "pasar"
+                mask[0] = True
+
+        return mask
+
+

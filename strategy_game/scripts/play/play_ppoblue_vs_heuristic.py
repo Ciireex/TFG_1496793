@@ -1,21 +1,21 @@
 import sys
 import os
+import pygame
+import gymnasium as gym
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 print("PYTHONPATH añadido:", os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-import gymnasium as gym
-import pygame
-from stable_baselines3 import PPO
+from stable_baselines3 import A2C, PPO
 from gym_strategy.envs.StrategyEnv import StrategyEnv
 from gym_strategy.core.Renderer import Renderer
-from gym_strategy.utils.HeuristicPolicy import HeuristicPolicy
 
-# Cargar modelo PPO entrenado (equipo azul)
-model = PPO.load("models/ppoblue_vs_heuristic_curriculum_v1")
+# Cargar modelos
+a2c_model = A2C.load("models/a2cblue_vs_ppored_v1")
+ppo_model = PPO.load("models/pporojo_vs_heuristic_curriculum_v1")
 
-# Inicializar entorno y heurística
+# Inicializar entorno y renderer
 env = StrategyEnv(use_obstacles=True)
-heuristic = HeuristicPolicy(env)
 renderer = Renderer(width=700, height=500, board_size=env.board_size)
 
 obs, _ = env.reset()
@@ -55,11 +55,11 @@ while not done:
 
     # Elegir acción
     if current_team == 0:
-        action, _ = model.predict(obs, deterministic=True)
-        agent_name = "PPO (azul)"
+        action, _ = a2c_model.predict(obs, deterministic=True)
+        agent_name = "A2C (azul)"
     else:
-        action = heuristic.get_action(obs)
-        agent_name = "Heurística (rojo)"
+        action, _ = ppo_model.predict(obs, deterministic=True)
+        agent_name = "PPO (rojo)"
 
     action = int(action)
     action_text = f"{agent_name}: "
