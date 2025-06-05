@@ -1,31 +1,24 @@
 import sys
 import os
+import pygame
+import numpy as np
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 print("PYTHONPATH añadido:", os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-import pygame
-from stable_baselines3 import PPO
+from stable_baselines3 import DQN, PPO
 from gym_strategy.envs.StrategyEnv import StrategyEnv
 from gym_strategy.core.Renderer import Renderer
 
-# Cargar modelo PPO azul
-model_blue = PPO.load("models/ppoblue_v2")
+# Cargar modelos
+blue_model = DQN.load("models/dqn_blue_v4_cycle10.zip", device="cpu")
+red_model = PPO.load("models/pporojo_vs_ppoblue_v3_ciclo10.zip", device="cpu")
 
 # Inicializar entorno y renderer
 env = StrategyEnv(use_obstacles=True)
 renderer = Renderer(width=700, height=500, board_size=env.board_size)
-
 obs, _ = env.reset()
 done = False
-
-# Mapeo de teclas del humano
-key_to_action = {
-    pygame.K_0: 0,  # pasar
-    pygame.K_1: 1,  # izquierda
-    pygame.K_2: 2,  # derecha
-    pygame.K_3: 3,  # arriba
-    pygame.K_4: 4   # abajo
-}
 
 action_names = {
     0: "pasar",
@@ -35,60 +28,50 @@ action_names = {
     4: "↓"
 }
 
-print("🎮 CONTROL HUMANO (equipo ROJO)")
-print("Pulsa: 1=←, 2=→, 3=↑, 4=↓, 0=pasar")
-print("Pulsa ESPACIO para que la IA (azul) juegue su turno.")
+print("🎮 Pulsa ESPACIO para avanzar cada acción. Cierra la ventana para salir.")
 
 while not done:
-    current_team = env.current_player
+    pygame.event.pump()
+
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                waiting = False
+            elif event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+    team = env.current_player
     phase = env.phase
-    idx = env.unit_index_per_team[current_team]
-    my_units = [u for u in env.units if u.team == current_team and u.is_alive()]
+    idx = env.unit_index_per_team[team]
+    my_units = [u for u in env.units if u.team == team and u.is_alive()]
     unit = my_units[idx] if idx < len(my_units) else None
 
     if unit is None or not unit.is_alive():
         obs, _, done, _, _ = env.step(0)
         continue
 
-    # IA (azul)
-    if current_team == 0:
-        print(f"\n🤖 Turno IA AZUL ({phase.upper()}) — Pulsa ESPACIO para ver su acción...")
-        waiting = True
-        while waiting:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    waiting = False
-                elif event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-        action, _ = model_blue.predict(obs, deterministic=True)
-        print(f"🤖 PPO (azul): {phase.upper()} {action_names.get(int(action), '?')}")
-
-    # Humano (rojo)
+    # Elegir acción
+    if team == 0:
+        obs_flat = obs.flatten().reshape(1, -1)
+        action, _ = blue_model.predict(obs_flat, deterministic=True)
+        agent_name = "DQN Azul v4"
     else:
-        print(f"\n🧑‍💻 Tu turno ROJO ({phase.upper()}) — Pulsa tecla 1=←, 2=→, 3=↑, 4=↓, 0=pasar")
-        action = None
-        waiting = True
-        while waiting:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN and event.key in key_to_action:
-                    action = key_to_action[event.key]
-                    waiting = False
-                elif event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-        print(f"🧑‍💻 Humano: {phase.upper()} {action_names.get(int(action), '?')}")
+        action, _ = red_model.predict(obs, deterministic=True)
+        agent_name = "PPO Rojo v3"
 
-    # Ejecutar acción
-    obs, reward, done, _, _ = env.step(action)
+    # ✅ Parche: asegurar que action sea int puro
+    action = int(action) if isinstance(action, (np.ndarray, list)) else action
+
+    print(f"{agent_name}: {phase.upper()} → {action_names.get(action, '?')}")
+    obs, _, done, _, _ = env.step(action)
 
     # Dibujar tablero
     renderer.draw_board(
         units=env.units,
-        blocked_positions={
-            (x, y) for x in range(env.board_size[0])
-            for y in range(env.board_size[1]) if env.obstacles[x, y]
-        },
+        blocked_positions={(x, y) for x in range(env.board_size[0])
+                           for y in range(env.board_size[1]) if env.obstacles[x, y]},
         active_unit=unit,
         capture_point=env.capture_point,
         capture_score=env.capture_progress,
@@ -96,4 +79,4 @@ while not done:
     )
 
 pygame.quit()
-print("✔ Partida finalizada")
+print("\n🎬 Partida finalizada.")

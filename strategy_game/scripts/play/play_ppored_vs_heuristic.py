@@ -9,7 +9,7 @@ from stable_baselines3 import PPO
 from gym_strategy.envs.StrategyEnv import StrategyEnv
 from gym_strategy.core.Renderer import Renderer
 from gym_strategy.utils.HeuristicPolicy import HeuristicPolicy
-
+ 
 # Cargar modelo PPO entrenado (equipo rojo)
 model = PPO.load("models/pporojo_vs_heuristic_curriculum_v1")
 
@@ -83,4 +83,4 @@ while not done:
 
 pygame.quit()
 print("✔ Partida finalizada")
-  
+   

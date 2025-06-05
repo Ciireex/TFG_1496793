@@ -1,54 +1,107 @@
+
 import numpy as np
+from collections import deque
 
 class HeuristicPolicy:
     def __init__(self, env):
-        self.env = env
+        self.board_size = env.board_size
+        self.capture_point = env.capture_point
 
     def get_action(self, obs):
-        team = self.env.current_player
-        team_units = [u for u in self.env.units if u.team == team and u.is_alive()]
-        idx = self.env.unit_index_per_team[team]
+        unit_indices = np.argwhere(obs[13] == 1)
+        if len(unit_indices) == 0:
+            return 0
 
-        if idx >= len(team_units):
-            return 0  # Pasar turno por seguridad
+        unit_pos = tuple(unit_indices[0])
+        ux, uy = unit_pos
+        is_attack_phase = obs[8, 0, 0] == 1
+        team_id = int(obs[9, 0, 0])
+        cx, cy = self.capture_point
 
-        unit = team_units[idx]
-        x, y = unit.position
+        ally_layer = 1
+        enemy_layer = 4
 
-        # Fase de movimiento
-        if self.env.phase == "move":
-            cx, cy = self.env.capture_point
-            dx = np.sign(cx - x)
-            dy = np.sign(cy - y)
+        equipo_str = "Azul" if team_id == 0 else "Rojo"
 
-            # Orden de preferencia: avanzar en x, luego y
-            for move in [(dx, 0), (0, dy), (0, 0)]:
-                mx, my = x + move[0], y + move[1]
-                if self.env._valid_move((mx, my)):
-                    if move == (0, 0):
-                        return 0
-                    elif move == (-1, 0):
-                        return 1  # ←
-                    elif move == (1, 0):
-                        return 2  # →
-                    elif move == (0, -1):
-                        return 3  # ↑
-                    elif move == (0, 1):
-                        return 4  # ↓
-
-            return 0  # Si no hay opción válida, pasar
-
-        # Fase de ataque
-        elif self.env.phase == "attack":
+        # --- ATAQUE ---
+        if is_attack_phase:
+            unit_type = self._get_unit_type(obs, unit_pos)
+            attack_range = 3 if unit_type == "Archer" else 1
             dirs = [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]
-            for i, (dx, dy) in enumerate(dirs):
-                for dist in range(1, 4 if unit.unit_type == "Archer" else 2):
-                    tx, ty = x + dx * dist, y + dy * dist
-                    if not self.env._valid_coord((tx, ty)):
+            for i, (dx, dy) in enumerate(dirs[1:], start=1):
+                for dist in range(1, attack_range + 1):
+                    tx, ty = ux + dx * dist, uy + dy * dist
+                    if not self._valid_coord((tx, ty)):
                         break
-                    for enemy in self.env.units:
-                        if enemy.team != team and enemy.is_alive() and enemy.position == (tx, ty):
-                            return i  # Atacar en esa dirección
-            return 0  # No hay enemigos a rango, pasar
+                    if obs[enemy_layer, tx, ty] > 0.5:
+                        return i
+            return 0
 
+        # --- MOVIMIENTO ---
+        if unit_pos == self.capture_point:
+            return 0
+
+        if obs[enemy_layer, cx, cy] > 0.5:
+            target = (cx, cy)
+        elif obs[ally_layer, cx, cy] > 0.5:
+            enemy_positions = list(zip(*np.where(obs[enemy_layer] > 0.5)))
+            target = self._find_closest(unit_pos, enemy_positions, obs)
+        else:
+            target = (cx, cy)
+
+        path = self._bfs(unit_pos, target, obs)
+        if len(path) >= 2:
+            next_pos = path[1]
+            dx, dy = next_pos[0] - ux, next_pos[1] - uy
+            if dx == -1: return 1
+            if dx == 1:  return 2
+            if dy == -1: return 3
+            if dy == 1:  return 4
         return 0
+
+    def _get_unit_type(self, obs, pos):
+        x, y = pos
+        if obs[16, x, y] > 0.5: return "Soldier"
+        if obs[17, x, y] > 0.5: return "Knight"
+        if obs[18, x, y] > 0.5: return "Archer"
+        return "Unknown"
+
+    def _bfs(self, start, goal, obs):
+        width, height = self.board_size
+        visited = set()
+        queue = deque([(start, [start])])
+
+        def is_valid(pos):
+            x, y = pos
+            if pos == goal:
+                return 0 <= x < width and 0 <= y < height and pos not in visited
+            return (0 <= x < width and 0 <= y < height and
+                    obs[0, x, y] == 0 and
+                    obs[1, x, y] == 0 and obs[4, x, y] == 0 and
+                    pos not in visited)
+
+        while queue:
+            (x, y), path = queue.popleft()
+            if (x, y) == goal:
+                return path
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = x + dx, y + dy
+                new_pos = (nx, ny)
+                if is_valid(new_pos):
+                    visited.add(new_pos)
+                    queue.append((new_pos, path + [new_pos]))
+        return [start]
+
+    def _find_closest(self, start, targets, obs):
+        min_len = float('inf')
+        closest = None
+        for pos in targets:
+            path = self._bfs(start, pos, obs)
+            if len(path) > 1 and len(path) < min_len:
+                min_len = len(path)
+                closest = pos
+        return closest if closest else start
+
+    def _valid_coord(self, pos):
+        x, y = pos
+        return 0 <= x < self.board_size[0] and 0 <= y < self.board_size[1]

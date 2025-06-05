@@ -95,3 +95,4 @@ while not done:
 
 pygame.quit()
 print("✔ Partida finalizada")
+  
