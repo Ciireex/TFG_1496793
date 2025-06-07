@@ -1,3 +1,4 @@
+
 import pygame
 import numpy as np
 
@@ -13,20 +14,20 @@ class Renderer:
     def draw_board(self, units, blocked_positions=None,
                    active_unit=None, highlight_attack=False,
                    terrain=None, capture_point=None,
-                   capture_score=None, max_capture=5):
+                   capture_score=None, max_capture=5,
+                   castle_area=None, castle_hp=None):
 
         pygame.event.pump()
         self.screen.fill((255, 255, 255))
         cell_width = self.width // self.board_size[0]
         cell_height = self.height // self.board_size[1]
 
-        # Dibujar casillas
         for x in range(self.board_size[0]):
             for y in range(self.board_size[1]):
                 rect = pygame.Rect(x * cell_width, y * cell_height, cell_width, cell_height)
 
                 if terrain is not None and terrain[x, y] == 1:
-                    pygame.draw.rect(self.screen, (144, 238, 144), rect)  # verde claro
+                    pygame.draw.rect(self.screen, (144, 238, 144), rect)
 
                 if blocked_positions and (x, y) in blocked_positions:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
@@ -34,11 +35,13 @@ class Renderer:
                     continue
 
                 if capture_point and (x, y) == capture_point:
-                    pygame.draw.rect(self.screen, (255, 223, 100), rect)  # dorado claro
+                    pygame.draw.rect(self.screen, (255, 223, 100), rect)
+
+                if castle_area and (x, y) in castle_area:
+                    pygame.draw.rect(self.screen, (180, 180, 255), rect)
 
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
-        # Dibujar unidades
         for unit in units:
             if not unit.is_alive():
                 continue
@@ -65,11 +68,9 @@ class Renderer:
                 points = [(cx, cy - size), (cx - size, cy + size), (cx + size, cy + size)]
                 pygame.draw.polygon(self.screen, color, points)
 
-            # Unidad activa
             if (active_unit and unit.position == active_unit.position and unit.team == active_unit.team):
                 pygame.draw.rect(self.screen, (255, 165, 0), (x_pix + 2, y_pix + 2, cell_width - 4, cell_height - 4), 3)
 
-            # Barra de vida
             max_hp = 100
             hp_ratio = max(0, unit.health / max_hp)
             bar_width = cell_width - 2 * margin
@@ -80,11 +81,22 @@ class Renderer:
             pygame.draw.rect(self.screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(self.screen, bar_color, (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
 
-        # Dibujar puntuación de captura
         if capture_score:
             font = pygame.font.SysFont(None, 26)
             score_text = font.render(f"Capturas AZUL: {capture_score[0]} / ROJO: {capture_score[1]}", True, (0, 0, 0))
             self.screen.blit(score_text, (10, self.height - 30))
+
+        if castle_hp is not None:
+            center_x = self.width // 2
+            font = pygame.font.SysFont(None, 26)
+            text = font.render(f"Castillo: {castle_hp}", True, (0, 0, 0))
+            self.screen.blit(text, (center_x - text.get_width() // 2, self.height - 60))
+            bar_width = 200
+            bar_height = 12
+            filled_portion = int((castle_hp + 5) / 10 * bar_width)
+            pygame.draw.rect(self.screen, (150, 150, 150), (center_x - bar_width//2, self.height - 40, bar_width, bar_height))
+            pygame.draw.rect(self.screen, (0, 0, 255) if castle_hp >= 0 else (200, 0, 0),
+                             (center_x - bar_width//2, self.height - 40, filled_portion, bar_height))
 
         pygame.display.flip()
 

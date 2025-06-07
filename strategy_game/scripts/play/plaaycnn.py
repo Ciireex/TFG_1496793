@@ -9,17 +9,16 @@ print("PYTHONPATH añadido:", os.path.abspath(os.path.join(os.path.dirname(__fil
 
 import torch
 from stable_baselines3 import PPO
-from gym_strategy.envs.StrategyEnv_CNN import StrategyEnv_CNN
+from gym_strategy.envs.StrategyEnv_Castle import StrategyEnv_Castle
 from gym_strategy.core.Renderer import Renderer
-from gym_strategy.utils.HeuristicPolicy import HeuristicPolicy
 
-# Cargar el modelo entrenado
-model = PPO.load("models/ppo_cnn_v9", device="cpu")  # Cambia a "cuda" si entrenaste con GPU
+# Cargar modelos entrenados
+model_blue = PPO.load("models/ppo_castle_blue", device="cpu")
+model_red = PPO.load("models/ppo_castle_red", device="cpu")
 
-# Crear entorno y componentes
-env = StrategyEnv_CNN(use_obstacles=True)
-heuristic = HeuristicPolicy(env)
-renderer = Renderer(width=700, height=500, board_size=env.board_size)
+# Crear entorno y renderizador
+env = StrategyEnv_Castle(use_obstacles=True)
+renderer = Renderer(width=720, height=560, board_size=env.board_size)
 
 obs, _ = env.reset()
 done = False
@@ -32,7 +31,7 @@ action_names = {
     4: "abajo"
 }
 
-print("\n🎮 Visualizando PPO-CNN (azul) vs Heurística (rojo)")
+print("\n🎮 Visualizando PPO Azul vs PPO Rojo (castillo)")
 print("⏩ Pulsa ESPACIO para avanzar cada acción. Cierra la ventana para salir.\n")
 
 while not done:
@@ -43,15 +42,14 @@ while not done:
     index = env.unit_index_per_team[env.current_player]
     active_unit = team_units[index] if index < len(team_units) else None
 
-    # Dibujar
+    # Dibujar tablero
     renderer.draw_board(
         units=env.units,
         blocked_positions={(x, y) for x in range(env.board_size[0])
                            for y in range(env.board_size[1]) if env.obstacles[x, y]},
         active_unit=active_unit,
-        capture_point=env.capture_point,
-        capture_score=env.capture_progress,
-        max_capture=env.capture_turns_required
+        castle_zone=env.castle_area,
+        castle_hp=env.castle_control
     )
 
     # Esperar tecla
@@ -64,18 +62,17 @@ while not done:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
 
-    # Acción PPO o heurística
+    # Decidir acción
     if env.current_player == 0:
-        action, _ = model.predict(obs, deterministic=True)
+        action, _ = model_blue.predict(obs, deterministic=True)
         unit_type = active_unit.unit_type if active_unit else "?"
-        print(f"🤖 PPO-CNN Azul ({env.phase.upper()} | {unit_type}) → {action_names.get(int(action), '?')}")
-        obs, _, done, _, _ = env.step(int(action))
+        print(f"🤖 PPO Azul ({env.phase.upper()} | {unit_type}) → {action_names.get(int(action), '?')}")
     else:
-        action = heuristic.get_action(obs)
+        action, _ = model_red.predict(obs, deterministic=True)
         unit_type = active_unit.unit_type if active_unit else "?"
-        print(f"🧠 Heurística Roja ({env.phase.upper()} | {unit_type}) → {action_names.get(int(action), '?')}")
-        obs, _, done, _, _ = env.step(int(action))
+        print(f"🤖 PPO Rojo ({env.phase.upper()} | {unit_type}) → {action_names.get(int(action), '?')}")
+
+    obs, _, done, _, _ = env.step(int(action))
 
 pygame.quit()
 print("\n✅ Partida finalizada.")
- 
