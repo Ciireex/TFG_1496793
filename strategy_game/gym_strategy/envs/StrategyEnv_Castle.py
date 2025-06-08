@@ -1,24 +1,20 @@
-
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import random
-import networkx as nx
 from gym_strategy.core.Unit import Soldier, Archer, Knight
 
 class StrategyEnv_Castle(gym.Env):
     def __init__(self, use_obstacles=True):
         super().__init__()
-        self.castle_top_left = (4, 2)
-        self.castle_bottom_right = (5, 3)
         self.board_size = (9, 7)
         self.castle_area = [(4, 3), (4, 4), (5, 3), (5, 4)]
         self.max_turns = 60
-        self.castle_control = 0  # Rango de -5 (rojo gana) a 5 (azul gana)
+        self.castle_control = 0  # Rango de -5 a 5
         self.unit_types = [Soldier, Soldier, Archer, Knight] * 2
         self.num_units = 8
         self.action_space = spaces.Discrete(5)
-        self.observation_space = spaces.Box(0, 1, shape=(21, 9, 7), dtype=np.float32)
+        self.observation_space = spaces.Box(0, 1, shape=(14, 9, 7), dtype=np.float32)
         self.use_obstacles = use_obstacles
         self.reset()
 
@@ -40,11 +36,7 @@ class StrategyEnv_Castle(gym.Env):
             unit = self.unit_types[i](position=pos, team=team)
             self.units.append(unit)
 
-        if self.use_obstacles:
-            self.obstacles = self._generate_obstacles([u.position for u in self.units])
-        else:
-            self.obstacles = np.zeros(self.board_size, dtype=np.int8)
-
+        self.obstacles = self._generate_obstacles([u.position for u in self.units]) if self.use_obstacles else np.zeros(self.board_size, dtype=np.int8)
         return self._get_obs(), {}
 
     def step(self, action):
@@ -78,17 +70,12 @@ class StrategyEnv_Castle(gym.Env):
             if not self._valid_coord((tx, ty)):
                 break
 
-            # Atacar castillo
             if (tx, ty) in self.castle_area:
-                if self.current_player == 0:
-                    self.castle_control += 1
-                else:
-                    self.castle_control -= 1
+                self.castle_control += 1 if self.current_player == 0 else -1
                 reward += 0.5
                 attacked = True
                 break
 
-            # Atacar enemigo
             for enemy in self.units:
                 if enemy.team != self.current_player and enemy.is_alive() and enemy.position == (tx, ty):
                     enemy.health -= unit.get_attack_damage(enemy)
@@ -139,31 +126,69 @@ class StrategyEnv_Castle(gym.Env):
         return self._valid_coord(pos) and self.obstacles[pos] == 0 and pos not in self.castle_area and not any(u.position == pos and u.is_alive() for u in self.units)
 
     def _get_obs(self):
-        obs = np.zeros((21, self.board_size[0], self.board_size[1]), dtype=np.float32)
-        for x in range(self.board_size[0]):
-            for y in range(self.board_size[1]):
-                if self.obstacles[x, y]:
-                    obs[0, x, y] = 1.0
-        for unit in self.units:
-            if unit.is_alive():
-                x, y = unit.position
-                team_idx = 1 if unit.team == self.current_player else 4
-                type_base = 2 if unit.team == self.current_player else 7
-                hp_idx = 3 if unit.team == self.current_player else 6
-                obs[team_idx, x, y] = 1.0
-                if unit.unit_type == "Soldier":
-                    obs[type_base + 0, x, y] = 1.0
-                elif unit.unit_type == "Knight":
-                    obs[type_base + 1, x, y] = 1.0
-                elif unit.unit_type == "Archer":
-                    obs[type_base + 2, x, y] = 1.0
-                obs[hp_idx, x, y] = unit.health / 100.0
-        obs[8, :, :] = 1.0 if self.phase == "attack" else 0.0
-        obs[9, :, :] = float(self.current_player)
+        obs = np.zeros((19, self.board_size[0], self.board_size[1]), dtype=np.float32)
+
+        # 0: Obstáculos
+        obs[0] = self.obstacles
+
+        # 1: Castillo
         for (x, y) in self.castle_area:
-            obs[10, x, y] = 1.0
-        obs[11, :, :] = self.turn_count / self.max_turns
+            obs[1, x, y] = 1.0
+
+        # 2: Posición aliados
+        # 3-5: Tipo de aliados (Soldier, Knight, Archer)
+        # 6: Vida de aliados
+        # 7: Posición enemigos
+        # 8-10: Tipo de enemigos (Soldier, Knight, Archer)
+        # 11: Vida de enemigos
+        for unit in self.units:
+            if not unit.is_alive():
+                continue
+            x, y = unit.position
+            if unit.team == self.current_player:
+                obs[2, x, y] = 1.0
+                if unit.unit_type == "Soldier":
+                    obs[3, x, y] = 1.0
+                elif unit.unit_type == "Knight":
+                    obs[4, x, y] = 1.0
+                elif unit.unit_type == "Archer":
+                    obs[5, x, y] = 1.0
+                obs[6, x, y] = unit.health / 100.0
+            else:
+                obs[7, x, y] = 1.0
+                if unit.unit_type == "Soldier":
+                    obs[8, x, y] = 1.0
+                elif unit.unit_type == "Knight":
+                    obs[9, x, y] = 1.0
+                elif unit.unit_type == "Archer":
+                    obs[10, x, y] = 1.0
+                obs[11, x, y] = unit.health / 100.0
+
+        # 12: Unidad activa (one-hot)
+        # 13-15: Tipo y vida de la unidad activa
+        active_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
+        if self.unit_index_per_team[self.current_player] < len(active_units):
+            unit = active_units[self.unit_index_per_team[self.current_player]]
+            x, y = unit.position
+            obs[12, x, y] = 1.0
+            if unit.unit_type == "Soldier":
+                obs[13, x, y] = 1.0
+            elif unit.unit_type == "Knight":
+                obs[14, x, y] = 1.0
+            elif unit.unit_type == "Archer":
+                obs[15, x, y] = 1.0
+            obs[16, x, y] = unit.health / 100.0
+
+        # 17: Fase (0 = move, 1 = attack)
+        obs[17, :, :] = 1.0 if self.phase == "attack" else 0.0
+
+        # 18: Equipo actual (0.0 = azul, 1.0 = rojo)
+        obs[18, :, :] = float(self.current_player)
+
         return obs
+
+    def _unit_type_id(self, unit_type):
+        return {"Soldier": 1.0, "Archer": 2.0, "Knight": 3.0}.get(unit_type, 0.0) / 3.0
 
     def _generate_obstacles(self, units_positions, obstacle_count=6):
         attempts = 100
