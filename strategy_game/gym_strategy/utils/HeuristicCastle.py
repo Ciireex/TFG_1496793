@@ -1,60 +1,66 @@
 import numpy as np
-from collections import deque
+from collections import deque, defaultdict
 
 class HeuristicCastle:
     def __init__(self, env):
         self.board_size = env.board_size
         self.castle_area = env.castle_area
+        self.castle_control = 0
+        self.last_castle_hits = defaultdict(int)
 
     def get_action(self, obs):
-        # --- Localizar unidad activa ---
+        # Identificar unidad activa
         unit_pos = np.argwhere(obs[12] == 1)
         if len(unit_pos) == 0:
             return 0
         ux, uy = tuple(unit_pos[0])
+        unit_id = (ux, uy, int(obs[18, 0, 0]))  # pos + equipo
 
-        # --- Fase de ataque o movimiento ---
         is_attack_phase = obs[17, 0, 0] == 1
         team_id = int(obs[18, 0, 0])
 
         if is_attack_phase:
             unit_type = self._get_unit_type(obs, (ux, uy))
             attack_range = 3 if unit_type == "Archer" else 1
-            dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # ↑ ↓ ← →
-            
-            # 1. Prioridad: atacar enemigo
+            dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+            # 1. Atacar enemigo
             for i, (dx, dy) in enumerate(dirs, start=1):
                 for dist in range(1, attack_range + 1):
                     tx, ty = ux + dx * dist, uy + dy * dist
                     if not self._valid_coord((tx, ty)):
                         break
                     if obs[7, tx, ty] > 0.5:
+                        self.last_castle_hits[unit_id] = 0
                         return i
-            
-            # 2. Si no hay enemigos, atacar castillo si está en línea y sin bloqueo
+
+            # 2. Atacar castillo si se puede
             for i, (dx, dy) in enumerate(dirs, start=1):
                 for dist in range(1, attack_range + 1):
                     tx, ty = ux + dx * dist, uy + dy * dist
                     if not self._valid_coord((tx, ty)):
                         break
                     if obs[1, tx, ty] > 0.5:
-                        # Asegurarse de que no hay enemigos entre medias
                         blocked = any(
                             obs[7, ux + dx * d, uy + dy * d] > 0.5
                             for d in range(1, dist)
                             if self._valid_coord((ux + dx * d, uy + dy * d))
                         )
                         if not blocked:
+                            self.last_castle_hits[unit_id] += 1
                             return i
             return 0
 
-        # --- Movimiento hacia castillo o enemigos ---
-        goal = self._find_castle_approach(obs)
-        if goal is None:
-            enemy_pos = list(zip(*np.where(obs[7] > 0.5)))
-            goal = self._find_closest((ux, uy), enemy_pos, obs)
+        # Movimiento
+        # Si ha atacado 3 veces seguidas al castillo sin progreso, ir a por enemigos
+        if self.last_castle_hits[unit_id] >= 3:
+            targets = list(zip(*np.where(obs[7] > 0.5)))
+            goal = self._find_closest((ux, uy), targets, obs)
+        else:
+            goal = self._find_castle_approach(obs)
             if goal is None:
-                return 0
+                targets = list(zip(*np.where(obs[7] > 0.5)))
+                goal = self._find_closest((ux, uy), targets, obs)
 
         path = self._bfs((ux, uy), goal, obs)
         if len(path) >= 2:
@@ -68,25 +74,33 @@ class HeuristicCastle:
 
     def _get_unit_type(self, obs, pos):
         x, y = pos
-        if obs[13, x, y] > 0.5: return "Soldier"
-        if obs[14, x, y] > 0.5: return "Knight"
-        if obs[15, x, y] > 0.5: return "Archer"
-        return "Unknown"
+        if obs[13, x, y] > 0.5:
+            return "Soldier"
+        elif obs[14, x, y] > 0.5:
+            return "Knight"
+        elif obs[15, x, y] > 0.5:
+            return "Archer"
+        else:
+            return "Unknown"
+
+
+    def _valid_coord(self, pos):
+        x, y = pos
+        return 0 <= x < self.board_size[0] and 0 <= y < self.board_size[1]
 
     def _bfs(self, start, goal, obs):
         visited = set()
         queue = deque([(start, [start])])
-        width, height = self.board_size
 
         def is_valid(pos):
             x, y = pos
             if not self._valid_coord(pos): return False
             if pos == goal: return True
             return (
-                obs[0, x, y] == 0 and  # sin obstáculo
-                obs[2, x, y] == 0 and  # sin aliado
-                obs[7, x, y] == 0 and  # sin enemigo
-                obs[1, x, y] == 0 and  # sin castillo (no se puede pisar)
+                obs[0, x, y] == 0 and
+                obs[2, x, y] == 0 and
+                obs[7, x, y] == 0 and
+                obs[1, x, y] == 0 and
                 pos not in visited
             )
 
@@ -121,11 +135,7 @@ class HeuristicCastle:
                     obs[0, nx, ny] == 0 and
                     obs[2, nx, ny] == 0 and
                     obs[7, nx, ny] == 0 and
-                    obs[1, nx, ny] == 0  # no encima del castillo
+                    obs[1, nx, ny] == 0
                 ):
                     return (nx, ny)
         return None
-
-    def _valid_coord(self, pos):
-        x, y = pos
-        return 0 <= x < self.board_size[0] and 0 <= y < self.board_size[1]

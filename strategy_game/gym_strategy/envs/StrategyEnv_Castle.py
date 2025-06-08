@@ -7,14 +7,14 @@ from gym_strategy.core.Unit import Soldier, Archer, Knight
 class StrategyEnv_Castle(gym.Env):
     def __init__(self, use_obstacles=True):
         super().__init__()
-        self.board_size = (9, 7)
-        self.castle_area = [(4, 3), (4, 4), (5, 3), (5, 4)]
+        self.board_size = (10, 7)
+        self.castle_area = [(4, 2), (4, 3), (5, 2), (5, 3)]
         self.max_turns = 60
-        self.castle_control = 0  # Rango de -5 a 5
+        self.castle_control = 0
         self.unit_types = [Soldier, Soldier, Archer, Knight] * 2
         self.num_units = 8
         self.action_space = spaces.Discrete(5)
-        self.observation_space = spaces.Box(0, 1, shape=(14, 9, 7), dtype=np.float32)
+        self.observation_space = spaces.Box(0, 1, shape=(19, *self.board_size), dtype=np.float32)
         self.use_obstacles = use_obstacles
         self.reset()
 
@@ -27,8 +27,8 @@ class StrategyEnv_Castle(gym.Env):
         self.castle_control = 0
         self.units = []
 
-        blue_spawns = [(0, 2), (0, 3), (0, 4), (0, 5)]
-        red_spawns = [(8, 2), (8, 3), (8, 4), (8, 5)]
+        blue_spawns = [(0, 1), (0, 2), (0, 3), (0, 4)]
+        red_spawns = [(9, 1), (9, 2), (9, 3), (9, 4)]
 
         for i in range(8):
             team = 0 if i < 4 else 1
@@ -69,13 +69,11 @@ class StrategyEnv_Castle(gym.Env):
             tx, ty = unit.position[0] + dx * dist, unit.position[1] + dy * dist
             if not self._valid_coord((tx, ty)):
                 break
-
             if (tx, ty) in self.castle_area:
                 self.castle_control += 1 if self.current_player == 0 else -1
                 reward += 0.5
                 attacked = True
                 break
-
             for enemy in self.units:
                 if enemy.team != self.current_player and enemy.is_alive() and enemy.position == (tx, ty):
                     enemy.health -= unit.get_attack_damage(enemy)
@@ -123,80 +121,97 @@ class StrategyEnv_Castle(gym.Env):
         return 0 <= x < self.board_size[0] and 0 <= y < self.board_size[1]
 
     def _valid_move(self, pos):
-        return self._valid_coord(pos) and self.obstacles[pos] == 0 and pos not in self.castle_area and not any(u.position == pos and u.is_alive() for u in self.units)
+        return (
+            self._valid_coord(pos)
+            and self.obstacles[pos] == 0
+            and pos not in self.castle_area
+            and not any(u.position == pos and u.is_alive() for u in self.units)
+        )
 
     def _get_obs(self):
-        obs = np.zeros((19, self.board_size[0], self.board_size[1]), dtype=np.float32)
-
-        # 0: Obstáculos
+        obs = np.zeros((19, *self.board_size), dtype=np.float32)
         obs[0] = self.obstacles
-
-        # 1: Castillo
         for (x, y) in self.castle_area:
             obs[1, x, y] = 1.0
-
-        # 2: Posición aliados
-        # 3-5: Tipo de aliados (Soldier, Knight, Archer)
-        # 6: Vida de aliados
-        # 7: Posición enemigos
-        # 8-10: Tipo de enemigos (Soldier, Knight, Archer)
-        # 11: Vida de enemigos
         for unit in self.units:
             if not unit.is_alive():
                 continue
             x, y = unit.position
             if unit.team == self.current_player:
                 obs[2, x, y] = 1.0
-                if unit.unit_type == "Soldier":
-                    obs[3, x, y] = 1.0
-                elif unit.unit_type == "Knight":
-                    obs[4, x, y] = 1.0
-                elif unit.unit_type == "Archer":
-                    obs[5, x, y] = 1.0
+                if unit.unit_type == "Soldier": obs[3, x, y] = 1.0
+                elif unit.unit_type == "Knight": obs[4, x, y] = 1.0
+                elif unit.unit_type == "Archer": obs[5, x, y] = 1.0
                 obs[6, x, y] = unit.health / 100.0
             else:
                 obs[7, x, y] = 1.0
-                if unit.unit_type == "Soldier":
-                    obs[8, x, y] = 1.0
-                elif unit.unit_type == "Knight":
-                    obs[9, x, y] = 1.0
-                elif unit.unit_type == "Archer":
-                    obs[10, x, y] = 1.0
+                if unit.unit_type == "Soldier": obs[8, x, y] = 1.0
+                elif unit.unit_type == "Knight": obs[9, x, y] = 1.0
+                elif unit.unit_type == "Archer": obs[10, x, y] = 1.0
                 obs[11, x, y] = unit.health / 100.0
 
-        # 12: Unidad activa (one-hot)
-        # 13-15: Tipo y vida de la unidad activa
         active_units = [u for u in self.units if u.team == self.current_player and u.is_alive()]
         if self.unit_index_per_team[self.current_player] < len(active_units):
             unit = active_units[self.unit_index_per_team[self.current_player]]
             x, y = unit.position
             obs[12, x, y] = 1.0
-            if unit.unit_type == "Soldier":
-                obs[13, x, y] = 1.0
-            elif unit.unit_type == "Knight":
-                obs[14, x, y] = 1.0
-            elif unit.unit_type == "Archer":
-                obs[15, x, y] = 1.0
+            if unit.unit_type == "Soldier": obs[13, x, y] = 1.0
+            elif unit.unit_type == "Knight": obs[14, x, y] = 1.0
+            elif unit.unit_type == "Archer": obs[15, x, y] = 1.0
             obs[16, x, y] = unit.health / 100.0
 
-        # 17: Fase (0 = move, 1 = attack)
         obs[17, :, :] = 1.0 if self.phase == "attack" else 0.0
-
-        # 18: Equipo actual (0.0 = azul, 1.0 = rojo)
         obs[18, :, :] = float(self.current_player)
-
         return obs
+    
+    def _is_adjacent_block_too_long(self, obstacles, x, y):
+        # Evitar más de 2 bloques seguidos en horizontal o vertical
+        horiz = obstacles[x-1:x+2, y] if 0 < x < obstacles.shape[0] - 1 else np.array([0])
+        vert = obstacles[x, y-1:y+2] if 0 < y < obstacles.shape[1] - 1 else np.array([0])
+        return horiz.sum() >= 2 or vert.sum() >= 2
 
-    def _unit_type_id(self, unit_type):
-        return {"Soldier": 1.0, "Archer": 2.0, "Knight": 3.0}.get(unit_type, 0.0) / 3.0
-
-    def _generate_obstacles(self, units_positions, obstacle_count=6):
+    def _generate_obstacles(self, units_positions, obstacle_count=10):
         attempts = 100
+        mid_x = self.board_size[0] // 2
+
+        # Calcular casillas prohibidas (adyacentes al castillo)
+        prohibited = set()
+        for (x, y) in self.castle_area:
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    nx, ny = x + dx, y + dy
+                    if self._valid_coord((nx, ny)):
+                        prohibited.add((nx, ny))
+
         for _ in range(attempts):
             obstacles = np.zeros(self.board_size, dtype=np.int8)
-            positions = [(x, y) for x in range(1, self.board_size[0]-1) for y in range(1, self.board_size[1]-1)
-                         if (x, y) not in self.castle_area and (x, y) not in units_positions]
-            sampled = random.sample(positions, k=obstacle_count)
-            for pos in sampled:
-                obstacles[pos] = 1
-            return obstacles
+
+            left_half_positions = [
+                (x, y) for x in range(1, mid_x)
+                for y in range(1, self.board_size[1] - 1)
+                if (x, y) not in self.castle_area and (x, y) not in units_positions
+            ]
+            random.shuffle(left_half_positions)
+
+            placed = 0
+            for x, y in left_half_positions:
+                mirror_x = self.board_size[0] - 1 - x
+                mirror_pos = (mirror_x, y)
+
+                if ((x, y) in prohibited or mirror_pos in prohibited or
+                    self._is_adjacent_block_too_long(obstacles, x, y) or
+                    self._is_adjacent_block_too_long(obstacles, mirror_x, y)):
+                    continue
+
+                if (x, y) in units_positions or mirror_pos in units_positions:
+                    continue
+
+                # Colocar simétricamente
+                obstacles[x, y] = 1
+                obstacles[mirror_x, y] = 1
+                placed += 2
+
+                if placed >= obstacle_count:
+                    return obstacles
+
+        raise Exception("No se pudo generar obstáculos equilibrados y simétricos.")
