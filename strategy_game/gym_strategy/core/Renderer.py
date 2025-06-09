@@ -1,4 +1,3 @@
-
 import pygame
 import numpy as np
 
@@ -13,7 +12,7 @@ class Renderer:
 
     def draw_board(self, units, blocked_positions=None,
                    active_unit=None, highlight_attack=False,
-                   terrain=None, capture_point=None,
+                   terrain=None,
                    capture_score=None, max_capture=5,
                    castle_area=None, castle_hp=None):
 
@@ -33,9 +32,6 @@ class Renderer:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
                     continue
-
-                if capture_point and (x, y) == capture_point:
-                    pygame.draw.rect(self.screen, (255, 223, 100), rect)
 
                 if castle_area and (x, y) in castle_area:
                     pygame.draw.rect(self.screen, (180, 180, 255), rect)
