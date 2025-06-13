@@ -1,86 +1,57 @@
-import sys
-import os
+import time
 import pygame
 import numpy as np
-import time
-
-# Añadir PYTHONPATH
+import sys
+import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-print("PYTHONPATH añadido:", os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from gym_strategy.envs.StrategyEnv_V5 import StrategyEnv_V5
-from gym_strategy.core.Renderer import Renderer
-from gym_strategy.utils.HeuristicPolicy import HeuristicPolicy
+from stable_baselines3 import PPO
+from gym_strategy.envs.StrategyEnv_Castle_Lite import StrategyEnv_Castle_Lite
+from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.core.Renderer import Renderer  # Asegúrate de que esté en la ruta correcta
 
-env = StrategyEnv_V5(use_obstacles=True)
-heuristic = HeuristicPolicy(env)
-renderer = Renderer(width=700, height=500, board_size=env.board_size)
+# Rutas de los modelos
+MODEL_PATH_0 = "./models/ppo_team0"
+MODEL_PATH_1 = "./models/ppo_team1"
+DELAY = 0.3  # segundos entre turnos
+
+# Cargar entorno y modelos
+env = StrategyEnv_Castle_Lite()
+model_team0 = PPO.load(MODEL_PATH_0, custom_objects={"features_extractor_class": CustomCNN})
+model_team1 = PPO.load(MODEL_PATH_1, custom_objects={"features_extractor_class": CustomCNN})
+
+renderer = Renderer(width=600, height=360, board_size=env.board_size)
 
 obs, _ = env.reset()
 done = False
+step = 0
+MAX_STEPS = 300
 
-# Acciones más claras (sin flechas dobles)
-action_names = {
-    0: "pasar",
-    1: "izquierda",
-    2: "derecha",
-    3: "arriba",
-    4: "abajo"
-}
+while not done and step < MAX_STEPS:
+    current_team = env.current_player
+    if current_team == 0:
+        action, _ = model_team0.predict(obs, deterministic=True)
+    else:
+        action, _ = model_team1.predict(obs, deterministic=True)
 
-print("🎮 Controles: [0] pasar, [1] izquierda, [2] derecha, [3] arriba, [4] abajo")
-print("Pulsa una tecla numérica para elegir la acción. Cierra la ventana para salir.")
+    obs, reward, done, _, _ = env.step(action)
 
-while not done:
-    pygame.event.pump()
-
-    active_unit = next((u for i, u in enumerate(env.units) if u.team == env.current_player and i == env.unit_index_per_team[env.current_player]), None)
     renderer.draw_board(
         units=env.units,
-        blocked_positions={(x, y) for x in range(env.board_size[0])
-                           for y in range(env.board_size[1]) if env.obstacles[x, y]},
-        active_unit=active_unit,
-        capture_point=env.capture_point,
-        capture_score=env.capture_progress,
-        max_capture=env.capture_turns_required
+        blocked_positions=np.argwhere(env.obstacles == 1).tolist(),
+        active_unit=env._get_active_unit(),
+        castle_area=env.castle_area,
+        capture_score=(max(env.castle_control, 0), -min(env.castle_control, 0)),
+        castle_hp=env.castle_control
     )
 
-    if env.current_player == 0:
-        # Turno del jugador humano
-        waiting = True
-        action = None
-        while waiting:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_0:
-                        action = 0
-                    elif event.key == pygame.K_1:
-                        action = 1
-                    elif event.key == pygame.K_2:
-                        action = 2
-                    elif event.key == pygame.K_3:
-                        action = 3
-                    elif event.key == pygame.K_4:
-                        action = 4
-                    elif event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        exit()
-                    if action is not None:
-                        waiting = False
-                elif event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-        unit_type = active_unit.unit_type if active_unit else "?"
-        print(f"👤 Tú ({env.phase.upper()} | {unit_type}) → {action_names[action]}")
-        obs, _, done, _, _ = env.step(action)
+    time.sleep(DELAY)
+    step += 1
 
-    else:
-        # Turno de la heurística con delay y detalle
-        time.sleep(1.0)
-        action = heuristic.get_action(obs)
-        unit_type = active_unit.unit_type if active_unit else "?"
-        print(f"🤖 Heurística ({env.phase.upper()} | {unit_type}) → {action_names[action]}")
-        obs, _, done, _, _ = env.step(action)
-
+# Esperar cierre de ventana
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 pygame.quit()
-print("\n🎬 Partida finalizada.")

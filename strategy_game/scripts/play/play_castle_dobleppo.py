@@ -6,7 +6,7 @@ import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from stable_baselines3 import PPO
-from gym_strategy.envs.StrategyEnv_Castle_Minimal import StrategyEnv_Castle_Minimal
+from gym_strategy.envs.StrategyEnv_Castle_Lite import StrategyEnv_Castle_Minimal
 from gym_strategy.core.Renderer import Renderer
 
 # Cargar los dos modelos entrenados
