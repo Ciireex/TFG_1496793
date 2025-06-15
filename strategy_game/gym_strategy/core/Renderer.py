@@ -28,7 +28,7 @@ class Renderer:
                 if terrain is not None and terrain[x, y] == 1:
                     pygame.draw.rect(self.screen, (144, 238, 144), rect)
 
-                if blocked_positions and (x, y) in blocked_positions:
+                if blocked_positions is not None and blocked_positions[x, y] == 1:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)
                     pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
                     continue
