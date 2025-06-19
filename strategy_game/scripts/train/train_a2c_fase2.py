@@ -6,7 +6,7 @@ from stable_baselines3 import A2C
 from stable_baselines3.common.vec_env import DummyVecEnv
 import torch as th
 from gym_strategy.envs.StrategyEnv_Fase3 import StrategyEnv_Fase3
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 # === WRAPPERS ===
 

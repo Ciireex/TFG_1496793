@@ -9,7 +9,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.logger import configure
 from gym_strategy.envs.StrategyEnv_TransferMedium_1v1_Archers import StrategyEnv_TransferMedium_1v1_Archers
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 ### === WRAPPER PARA ENTRENAR AL ROJO CONTRA UN AZUL FIJO === ###
 class FixedBlueWrapper(gym.Wrapper):

@@ -10,7 +10,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from gym_strategy.envs.StrategyEnv_CNN import StrategyEnv_CNN
 from gym_strategy.utils.HeuristicPolicy import HeuristicPolicy
 import torch
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 # === WRAPPER PARA A2C VS HEURÍSTICA ===
 class DualTeamEnvWrapper(gym.Wrapper):

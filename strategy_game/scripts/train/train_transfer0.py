@@ -12,7 +12,7 @@ from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 from stable_baselines3.common.logger import configure
 
 from gym_strategy.envs.StrategyEnv_TransferSmall_1v1 import StrategyEnv_TransferSmall_1v1
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 # Wrapper para que PPO solo controle un equipo
 class RandomEnemyWrapper(gym.Wrapper):

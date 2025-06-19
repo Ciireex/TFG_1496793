@@ -1,72 +1,62 @@
-import time
-from sb3_contrib.ppo_mask import MaskablePPO
-from sb3_contrib.common.wrappers import ActionMasker
+import os
+import sys
+from collections import Counter
+from stable_baselines3 import PPO
 
-from gym_strategy.envs.StrategyEnvBandos import StrategyEnvBandos
-from gym_strategy.core.Unit import Soldier, Archer
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-# Acción máscara
-def mask_fn(env):
-    return env.unwrapped._get_action_mask()
+from gym_strategy.envs.StrategyEnv_Base import StrategyEnv_2v2Soldiers4x4
 
-# Wrapper para evaluación de un equipo
-class StrategyEvalWrapper:
-    def __init__(self, env, model, team_controlled):
-        self.env = env
-        self.model = model
-        self.team = team_controlled
+# Clase que enfrenta a ambos modelos en turnos reales
+class DualPolicyEnv(StrategyEnv_2v2Soldiers4x4):
+    def __init__(self, model_blue, model_red):
+        super().__init__()
+        self.model_blue = model_blue
+        self.model_red = model_red
 
-    def get_actions(self, obs):
-        if self.env.unwrapped.current_player == self.team:
-            action_masks = self.env.unwrapped._get_action_mask()
-            action, _ = self.model.predict(obs, action_masks=action_masks)
-            return action
+    def step(self, action):
+        obs = self._get_obs()
+        if self.current_player == 0:
+            action, _ = self.model_blue.predict(obs, deterministic=True)
         else:
-            return [0] * len([
-                u for u in self.env.unwrapped.units
-                if u.team == self.env.unwrapped.current_player and u.is_alive()
-            ])
+            action, _ = self.model_red.predict(obs, deterministic=True)
+        return super().step(action)
 
-if __name__ == "__main__":
-    blue_team = [Soldier, Soldier, Archer]
-    red_team = [Archer, Soldier, Soldier]
+def evaluate(num_episodes=100):
+    print("🧠 Cargando modelos...")
+    model_blue = PPO.load("../models/ppo_blue_vs_heuristicred/ppo_blue_vf0.zip")
+    model_red = PPO.load("../models/ppo_red_vs_frozenblue/ppo_red_vf0.zip")
 
-    model_blue = MaskablePPO.load("ppo_bandos_BLUE_ciclo10")
-    model_red = MaskablePPO.load("ppo_bandos_RED_ciclo10")
+    env = DualPolicyEnv(model_blue=model_blue, model_red=model_red)
 
-    blue_wins = 0
-    red_wins = 0
-    draws = 0
-    total_games = 100
+    results = Counter()
 
-    for i in range(total_games):
-        env = StrategyEnvBandos(blue_team=blue_team, red_team=red_team)
-        env = ActionMasker(env, mask_fn)
-        env_base = env.unwrapped
-
-        blue_agent = StrategyEvalWrapper(env, model_blue, team_controlled=0)
-        red_agent = StrategyEvalWrapper(env, model_red, team_controlled=1)
-
-        obs, _ = env.reset()
+    for i in range(num_episodes):
+        obs, _ = env.reset(seed=i)
         done = False
 
         while not done:
-            current_agent = blue_agent if env_base.current_player == 0 else red_agent
-            actions = current_agent.get_actions(obs)
-            obs, _, done, _, info = env.step(actions)
+            obs = env._get_obs()
+            obs, reward, terminated, truncated, _ = env.step(0)
+            done = terminated or truncated
 
-        winner = info.get("episode", {}).get("winner", -1)
-        if winner == 0:
-            blue_wins += 1
-        elif winner == 1:
-            red_wins += 1
+        # Determinar ganador según unidades vivas
+        blue_alive = sum(1 for u in env.units if u.team == 0 and u.is_alive())
+        red_alive = sum(1 for u in env.units if u.team == 1 and u.is_alive())
+
+        if blue_alive > 0 and red_alive == 0:
+            results['victorias azules'] += 1
+        elif red_alive > 0 and blue_alive == 0:
+            results['victorias rojas'] += 1
         else:
-            draws += 1
+            results['empates'] += 1
 
-        print(f"Partida {i+1}/{total_games} terminada. Ganador: {'Azul' if winner == 0 else 'Rojo' if winner == 1 else 'Empate'}")
+        print(f"🏁 Partida {i+1}: Azul {blue_alive} vivos, Rojo {red_alive} vivos")
 
-    print("\n✅ Evaluación completada")
-    print(f"Total partidas: {total_games}")
-    print(f"🏆 Victorias Azul: {blue_wins} ({(blue_wins/total_games)*100:.1f}%)")
-    print(f"🔴 Victorias Rojo: {red_wins} ({(red_wins/total_games)*100:.1f}%)")
-    print(f"➖ Empates: {draws} ({(draws/total_games)*100:.1f}%)")
+    print("\n📊 RESULTADOS FINALES:")
+    print(f"🔵 Victorias azules: {results['victorias azules']}")
+    print(f"🔴 Victorias rojas: {results['victorias rojas']}")
+    print(f"⚪ Empates: {results['empates']}")
+
+if __name__ == "__main__":
+    evaluate(num_episodes=100)

@@ -10,7 +10,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 from gym_strategy.envs.StrategyEnv_Castle import StrategyEnv_Castle
 import torch
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 # === WRAPPER PARA CONTROLAR CADA EQUIPO POR SEPARADO ===
 class TeamEnvWrapper(gym.Wrapper):

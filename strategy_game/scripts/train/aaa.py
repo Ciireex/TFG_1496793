@@ -5,7 +5,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 # Rutas y entorno
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from gym_strategy.envs.StrategyEnv_TransferSmall_1v1_Archers import StrategyEnv_TransferSmall_1v1_Archers
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 # Wrappers
 class FixedRedWrapper(gym.Wrapper):

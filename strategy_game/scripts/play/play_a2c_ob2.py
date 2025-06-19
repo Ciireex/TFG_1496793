@@ -7,7 +7,7 @@ import numpy as np
 import torch as th
 from stable_baselines3 import A2C
 from gym_strategy.envs.StrategyEnv_Fase3 import StrategyEnv_Fase3
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 from gym_strategy.core.Renderer import Renderer
 
 # === CARGAR MODELOS ===

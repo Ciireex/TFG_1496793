@@ -9,7 +9,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.logger import configure
 from gym_strategy.envs.StrategyEnv_CastleControl import StrategyEnv_CastleControl
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 # Detectar automáticamente si hay GPU
 device = "cuda" if torch.cuda.is_available() else "cpu"

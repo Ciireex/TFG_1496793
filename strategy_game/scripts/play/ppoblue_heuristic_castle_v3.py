@@ -10,7 +10,7 @@ import gymnasium as gym
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from gym_strategy.envs.StrategyEnv_Castle import StrategyEnv_Castle
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 from gym_strategy.utils.HeuristicCastle import HeuristicCastle
 from gym_strategy.core.Renderer import Renderer
 

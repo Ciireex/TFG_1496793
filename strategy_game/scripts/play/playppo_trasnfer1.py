@@ -8,7 +8,7 @@ from stable_baselines3 import PPO
 import gymnasium as gym
 
 from gym_strategy.envs.StrategyEnv_TransferMedium_1v1_Archers import StrategyEnv_TransferMedium_1v1_Archers
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 from gym_strategy.core.Renderer import Renderer  # Ajusta si lo tienes en otro lado
 
 # === Wrapper para que AZUL sea fijo ===

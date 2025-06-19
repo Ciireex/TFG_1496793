@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 # Importa tus clases necesarias
 from gym_strategy.envs.StrategyEnv_Gemini import StrategyEnv_Gemini
 from gym_strategy.core.Renderer import Renderer
-from gym_strategy.utils.CustomCNN import CustomCNN  # Asegúrate de tener esta importación
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN  # Asegúrate de tener esta importación
 
 class PPOvsPPOWrapper(gym.Wrapper):
     def __init__(self, base_env, model_team0, model_team1):

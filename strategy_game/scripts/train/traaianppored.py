@@ -8,7 +8,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from gym_strategy.envs.StrategyEnv_Castle import StrategyEnv_Castle
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 from gym_strategy.utils.HeuristicCastle import HeuristicCastle
 
 # === WRAPPER para enfrentar PPO vs Heurística ===

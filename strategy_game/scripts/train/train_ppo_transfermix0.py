@@ -11,7 +11,7 @@ import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from gym_strategy.envs.StrategyEnv_TransferSmall_1v1 import StrategyEnv_TransferSmall_1v1
-from gym_strategy.utils.CustomCNN import CustomCNN
+from gym_strategy.utils.CustomCNN_Pro import CustomCNN
 
 ### === WRAPPERS === ###
 
