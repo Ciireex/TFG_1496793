@@ -1,0 +1,5 @@
+,a2c_red,ppo_red,maskableppo_red,dqn_red
+a2c_blue,69W / 0L / 31D,17W / 0L / 83D,25W / 64L / 11D,61W / 18L / 21D
+ppo_blue,0W / 2L / 98D,1W / 8L / 91D,1W / 60L / 39D,4W / 36L / 60D
+maskableppo_blue,97W / 0L / 3D,54W / 0L / 46D,70W / 30L / 0D,86W / 10L / 4D
+dqn_blue,97W / 0L / 3D,84W / 0L / 16D,71W / 27L / 2D,66W / 24L / 10D

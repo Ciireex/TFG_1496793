@@ -8,7 +8,7 @@ from stable_baselines3.common.utils import get_device
 
 # === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase2_Soldiers6x4
+from gym_strategy.envs.StrategyEnv import Env_Fase2_Soldiers6x4
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 
 # === CONFIGURACIÓN ===

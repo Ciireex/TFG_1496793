@@ -6,7 +6,7 @@ from stable_baselines3 import A2C
 # Añadir ruta base del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase1_Soldiers4x4
+from gym_strategy.envs.StrategyEnv import Env_Fase1_Soldiers4x4
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 from gym_strategy.core.Renderer import Renderer
 

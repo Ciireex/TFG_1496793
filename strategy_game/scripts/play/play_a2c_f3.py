@@ -1,67 +1,56 @@
 import os
 import sys
-import time
 import pygame
+import numpy as np
 from stable_baselines3 import A2C
 
-# Añadir ruta base del proyecto
+# === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase3_Archer6x4
+from gym_strategy.envs.StrategyEnv import Env_Fase3_Obstaculos
 from gym_strategy.core.Renderer import Renderer
 
-# Entorno con políticas por equipo
-class DualPolicyEnv(Env_Fase3_Archer6x4):
-    def __init__(self, model_blue, model_red):
-        super().__init__()
-        self.model_blue = model_blue
-        self.model_red = model_red
+# === RUTAS DE MODELOS ===
+CURRENT_DIR = os.path.dirname(__file__)
+MODEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "../../models"))
+BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_f3_v4.zip")
+RED_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_red_f3_v4.zip")
 
-    def step(self, action):
-        obs = self._get_obs()
-        if self.current_player == 0:
-            action, _ = self.model_blue.predict(obs, deterministic=True)
-        else:
-            action, _ = self.model_red.predict(obs, deterministic=True)
-        return super().step(action)
+# === CARGA DE MODELOS ===
+blue_model = A2C.load(BLUE_MODEL_PATH, device="auto")
+red_model = A2C.load(RED_MODEL_PATH, device="auto")
 
-def main():
-    CURRENT_DIR = os.path.dirname(__file__)
+# === ENTORNO Y RENDER ===
+env = Env_Fase3_Obstaculos()
+renderer = Renderer(width=700, height=500, board_size=env.board_size)
 
-    # === Cargar modelos ===
-    BLUE_PATH = os.path.abspath(os.path.join(CURRENT_DIR, "../../models/a2c_blue_def_f1_retrain2.zip"))
-    RED_PATH = os.path.abspath(os.path.join(CURRENT_DIR, "../../models/a2c_red_def_f1_retrain.zip"))
+obs, _ = env.reset()
+done = False
 
-    print("🧠 Cargando modelos A2C...")
-    model_blue = A2C.load(BLUE_PATH)
-    model_red = A2C.load(RED_PATH)
-    print("✅ Modelos cargados correctamente.")
+# === LOOP DE PARTIDA ===
+while not done:
+    if env.current_player == 0:
+        action, _ = blue_model.predict(obs, deterministic=True)
+    else:
+        action, _ = red_model.predict(obs, deterministic=True)
 
-    print("🎯 Inicializando entorno Fase 3 (6x4 con arqueros y obstáculos)...")
-    env = DualPolicyEnv(model_blue=model_blue, model_red=model_red)
-    renderer = Renderer(width=480, height=320, board_size=env.board_size)
+    obs, reward, done, _, _ = env.step(action)
 
-    # 🪄 Generar semilla aleatoria cada ejecución
-    seed = int(time.time() * 1000) % 2**32
-    obs, _ = env.reset(seed=seed)
-    print(f"🌱 Semilla aleatoria usada: {seed}")
+    # === PREPARAR OBSTÁCULOS PARA RENDER ===
+    blocked = np.zeros(env.board_size, dtype=np.uint8)
+    for x in range(env.board_size[0]):
+        for y in range(env.board_size[1]):
+            if env.terrain[x, y] == 99:
+                blocked[x, y] = 1
 
-    done = False
-    clock = pygame.time.Clock()
+    # === RENDER ===
+    renderer.draw_board(
+        units=env.units,
+        blocked_positions=blocked,
+        active_unit=env._get_active_unit(),
+        highlight_attack=True,
+        terrain=env.terrain
+    )
 
-    while not done:
-        obs, reward, terminated, truncated, _ = env.step(0)
-        done = terminated or truncated
+    pygame.time.delay(150)
 
-        renderer.draw_board(
-            units=env.units,
-            active_unit=env._get_active_unit(),
-            blocked_positions=(env.terrain == 99)
-        )
-
-        clock.tick(4)
-
-    print("🏁 Partida finalizada.")
-
-if __name__ == "__main__":
-    main()
+pygame.quit()

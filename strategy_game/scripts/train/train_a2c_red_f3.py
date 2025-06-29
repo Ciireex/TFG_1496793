@@ -3,44 +3,67 @@ import sys
 from stable_baselines3 import A2C
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.utils import get_device
 
-# Ruta base del proyecto
+# === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase2_Soldiers6x4_Obst
+from gym_strategy.envs.StrategyEnv import Env_Fase3_Obstaculos
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 
-# === CONFIGURACIÓN ===
-TOTAL_TIMESTEPS = 500_000
-N_ENVS = 4
-LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../logs/a2c_red_def_f1_retrain"))
-MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../models"))
-BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_def_f1_retrain.zip")
-PREV_RED_PATH = os.path.join(MODEL_DIR, "a2c_red_def_f1.zip")
+# === CONFIG ===
+BASE_DIR = os.path.dirname(__file__)
+LOG_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../logs/a2c/red_f3_v4"))
+MODEL_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../models"))
+PREVIOUS_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_red_f2_v1.zip")
+BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_f3_v4.zip")  # <<--- enemigo congelado
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# === CARGA DEL MODELO AZUL FIJO ===
-blue_model = A2C.load(BLUE_MODEL_PATH)
+# === WRAPPER: AZUL CON POLÍTICA FIJA ===
+class FrozenBlueWrapper(Env_Fase3_Obstaculos):
+    def __init__(self):
+        super().__init__()
+        self.blue_model = A2C.load(BLUE_MODEL_PATH, device="auto")
 
-# === WRAPPER: ENTORNO CON AZUL CONGELADO ===
-class FrozenBlueWrapper(Env_Fase2_Soldiers6x4_Obst):
     def step(self, action):
-        if self.current_player == 0:  # azul actúa con política fija
+        if self.current_player == 0:  # Azul
             obs = self._get_obs()
-            action, _ = blue_model.predict(obs, deterministic=True)
+            action, _ = self.blue_model.predict(obs, deterministic=True)
             return super().step(action)
         else:
             return super().step(action)
 
-# === ENV ENTRENAMIENTO ROJO ===
-env = make_vec_env(lambda: FrozenBlueWrapper(), n_envs=N_ENVS, seed=789)
+# === ENTORNO ===
+env = make_vec_env(lambda: FrozenBlueWrapper(), n_envs=4, seed=42)
 
-# === TRANSFER LEARNING DESDE MODELO ROJO PREVIO ===
-model = A2C.load(PREV_RED_PATH, env=env, device="auto")
-model.tensorboard_log = LOG_DIR
-model.set_parameters(PREV_RED_PATH, exact_match=True)
+# === POLÍTICA PERSONALIZADA ===
+policy_kwargs = dict(
+    features_extractor_class=EnhancedTacticalFeatureExtractor,
+    features_extractor_kwargs=dict(features_dim=384),
+    net_arch=dict(pi=[256, 128], vf=[256, 128])
+)
+
+# === CREAR MODELO A2C Y TRANSFER DESDE F2 ===
+model = A2C(
+    policy="CnnPolicy",
+    env=env,
+    policy_kwargs=policy_kwargs,
+    verbose=1,
+    tensorboard_log=LOG_DIR,
+    learning_rate=3e-4,
+    n_steps=10,
+    gamma=0.99,
+    gae_lambda=0.95,
+    ent_coef=0.05,
+    max_grad_norm=0.5,
+    seed=42,
+    device="auto"
+)
+
+# === TRANSFERENCIA DESDE F2 ROJO ===
+model_old = A2C.load(PREVIOUS_MODEL_PATH, device=get_device("auto"))
+model.policy.load_state_dict(model_old.policy.state_dict(), strict=False)
 
 # === CALLBACKS ===
 callbacks = [
@@ -55,14 +78,14 @@ callbacks = [
     CheckpointCallback(
         save_freq=50000,
         save_path=MODEL_DIR,
-        name_prefix="a2c_red_def_f1_retrain"
+        name_prefix="a2c_red_f3_v4"
     )
 ]
 
 # === ENTRENAMIENTO ===
-print("🚀 Entrenando A2C rojo contra azul congelado en Fase 2...")
-model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks, progress_bar=True)
+print("🚀 Entrenando A2C rojo F3 v4 (vs azul congelado F3 v4)...")
+model.learn(total_timesteps=1_000_000, callback=callbacks, progress_bar=True)
 
-# === GUARDADO FINAL ===
-model.save(os.path.join(MODEL_DIR, "a2c_red_def_f1_retrain"))
-print("✅ Modelo A2C rojo mejorado guardado como a2c_red_def_f1_retrain.zip")
+# === GUARDAR ===
+model.save(os.path.join(MODEL_DIR, "a2c_red_f3_v4"))
+print("✅ Modelo F3 v4 rojo guardado.")

@@ -7,7 +7,7 @@ from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 # Ruta base
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase2_Soldiers6x4_Obst
+from gym_strategy.envs.StrategyEnv import Env_Fase2_Soldiers6x4_Obst
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 
 # Configuración

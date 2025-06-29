@@ -25,8 +25,14 @@ class Renderer:
             for y in range(self.board_size[1]):
                 rect = pygame.Rect(x * cell_width, y * cell_height, cell_width, cell_height)
 
-                if terrain is not None and terrain[x, y] == 1:
-                    pygame.draw.rect(self.screen, (144, 238, 144), rect)
+                if terrain is not None:
+                    terrain_type = terrain[x, y]
+                    if terrain_type == 1:  # Bosque
+                        pygame.draw.rect(self.screen, (34, 139, 34), rect)
+                    elif terrain_type == 2:  # Colina
+                        pygame.draw.rect(self.screen, (205, 133, 63), rect)
+                    elif terrain_type == 3:  # Campamento
+                        pygame.draw.rect(self.screen, (255, 215, 0), rect)
 
                 if blocked_positions is not None and blocked_positions[x, y] == 1:
                     pygame.draw.rect(self.screen, (100, 100, 100), rect)

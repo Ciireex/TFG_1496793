@@ -1,76 +1,74 @@
 import os
 import sys
-import random
 from stable_baselines3 import A2C
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.utils import get_device
 
-# Ruta base del proyecto
+# === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase2_Soldiers6x4_Obst
+from gym_strategy.envs.StrategyEnv import Env_Fase3_Obstaculos
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 
-# === CONFIGURACIÓN ===
-TOTAL_TIMESTEPS = 1_000_000
-N_ENVS = 4
-LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../logs/a2c_blue_def_f1_continue"))
-MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../models"))
-PREV_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_def_f1.zip")
+# === CONFIG ===
+BASE_DIR = os.path.dirname(__file__)
+LOG_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../logs/a2c/blue_f3_v4"))
+MODEL_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../models"))
+PREVIOUS_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_f2_v1.zip")  # <<--- TRANSFER
+RED_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_red_f3_v2.zip")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# === ENVOLTORIO HEURÍSTICO PARA ROJO ===
-class RedHeuristicWrapper(Env_Fase2_Soldiers6x4_Obst):
+# === WRAPPER: ROJO CON POLÍTICA FIJA ===
+class FrozenRedWrapper(Env_Fase3_Obstaculos):
+    def __init__(self):
+        super().__init__()
+        self.red_model = A2C.load(RED_MODEL_PATH, device="auto")
+
     def step(self, action):
-        if self.current_player == 1:  # rojo = heurístico
-            unit = self._get_active_unit()
-            if not unit:
-                return super().step(0)
-
-            if self.phase == "attack":
-                x, y = unit.position
-                for dir_idx, (dx, dy) in enumerate([(-1, 0), (1, 0), (0, -1), (0, 1)]):
-                    tx, ty = x + dx, y + dy
-                    if not self._valid_coord((tx, ty)):
-                        continue
-                    for enemy in [u for u in self.units if u.team != unit.team and u.is_alive()]:
-                        if enemy.position == (tx, ty):
-                            return Env_Fase2_Soldiers6x4_Obst.step(self, dir_idx + 1)
-                return Env_Fase2_Soldiers6x4_Obst.step(self, 0)
-            else:
-                x, y = unit.position
-                directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-                random.shuffle(directions)
-                for dx, dy in directions:
-                    nx, ny = x + dx, y + dy
-                    if self._valid_move((nx, ny)):
-                        return Env_Fase2_Soldiers6x4_Obst.step(self, directions.index((dx, dy)) + 1)
-                return Env_Fase2_Soldiers6x4_Obst.step(self, 0)
+        if self.current_player == 1:
+            obs = self._get_obs()
+            action, _ = self.red_model.predict(obs, deterministic=True)
+            return super().step(action)
         else:
-            return Env_Fase2_Soldiers6x4_Obst.step(self, action)
+            return super().step(action)
 
-# === ENTORNO DE ENTRENAMIENTO ===
-env = make_vec_env(lambda: RedHeuristicWrapper(), n_envs=N_ENVS, seed=789)
+# === ENTORNO ===
+env = make_vec_env(lambda: FrozenRedWrapper(), n_envs=4, seed=42)
 
-# === CARGAR MODELO PREVIO Y CONTINUAR ENTRENANDO ===
-model = A2C.load(PREV_MODEL_PATH, env=env, device="auto")
-model.tensorboard_log = LOG_DIR
-model.set_parameters(PREV_MODEL_PATH, exact_match=True)
+# === POLÍTICA PERSONALIZADA ===
+policy_kwargs = dict(
+    features_extractor_class=EnhancedTacticalFeatureExtractor,
+    features_extractor_kwargs=dict(features_dim=384),
+    net_arch=dict(pi=[256, 128], vf=[256, 128])
+)
 
-# === AJUSTAR PARÁMETROS DE ENTRENAMIENTO ===
-model.n_steps = 32  # mejora temporal para A2C
-model.learning_rate = 7e-4
-model.ent_coef = 0.01
-model.gamma = 0.99
-model.gae_lambda = 1.0
-model.max_grad_norm = 0.5
+# === MODELO A2C Y TRANSFER DESDE F2 ===
+model = A2C(
+    policy="CnnPolicy",
+    env=env,
+    policy_kwargs=policy_kwargs,
+    verbose=1,
+    tensorboard_log=LOG_DIR,
+    learning_rate=3e-4,         # más bajo para fine-tuning estable
+    n_steps=10,
+    gamma=0.99,
+    gae_lambda=0.95,
+    ent_coef=0.05,
+    max_grad_norm=0.5,
+    seed=42,
+    device="auto"
+)
+
+# === CARGAR PESOS DE F2 ===
+model_old = A2C.load(PREVIOUS_MODEL_PATH, device=get_device("auto"))
+model.policy.load_state_dict(model_old.policy.state_dict(), strict=False)
 
 # === CALLBACKS ===
 callbacks = [
     EvalCallback(
-        RedHeuristicWrapper(),
+        FrozenRedWrapper(),
         best_model_save_path=MODEL_DIR,
         log_path=LOG_DIR,
         eval_freq=15000,
@@ -80,14 +78,14 @@ callbacks = [
     CheckpointCallback(
         save_freq=50000,
         save_path=MODEL_DIR,
-        name_prefix="a2c_blue_def_f1_continue"
+        name_prefix="a2c_blue_f3_v4"
     )
 ]
 
-# === INICIO ENTRENAMIENTO ===
-print("🚀 Continuando entrenamiento A2C azul contra heurístico...")
-model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks, progress_bar=True)
+# === ENTRENAMIENTO ===
+print("🚀 Fine-tuning A2C azul F3 v4 desde F2 (con entorno aleatorio y mejoras)...")
+model.learn(total_timesteps=1_000_000, callback=callbacks, progress_bar=True)
 
-# === GUARDADO DEL MODELO FINAL ===
-model.save(os.path.join(MODEL_DIR, "a2c_blue_def_f1_continue"))
-print("✅ Modelo A2C azul guardado como a2c_blue_def_f1_continue.zip")
+# === GUARDAR ===
+model.save(os.path.join(MODEL_DIR, "a2c_blue_f3_v4"))
+print("✅ Modelo F3 v4 azul guardado.")

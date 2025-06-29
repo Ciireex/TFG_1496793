@@ -6,7 +6,7 @@ from stable_baselines3 import A2C
 
 # === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from gym_strategy.envs.StrategyEnv_Def import Env_Fase2_Soldiers6x4
+from gym_strategy.envs.StrategyEnv import Env_Fase2_Soldiers6x4
 from gym_strategy.core.Renderer import Renderer
 
 # === RUTAS DE MODELOS ===

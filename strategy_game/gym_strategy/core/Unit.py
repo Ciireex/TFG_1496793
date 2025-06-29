@@ -21,7 +21,14 @@ class Unit:
 
     def is_alive(self):
         return self.health > 0
-
+    
+    def has_advantage_over(self, other_unit):
+        triangle = {
+            "Soldier": "Archer",
+            "Archer": "Knight",
+            "Knight": "Soldier"
+        }
+        return triangle.get(self.unit_type) == other_unit.unit_type
 
 class Soldier(Unit):
     def __init__(self, position, team):
