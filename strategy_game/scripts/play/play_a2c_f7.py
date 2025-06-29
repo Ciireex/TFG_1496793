@@ -6,64 +6,44 @@ from stable_baselines3 import A2C
 
 # === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-
-from gym_strategy.envs.StrategyEnv import Env_Fase7_MapaGrande
-from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
+from gym_strategy.envs.StrategyEnv import Env_Fase7_Terreno
 from gym_strategy.core.Renderer import Renderer
+from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 
-# === CONFIGURACIÓN DE MODELOS ===
-CURRENT_DIR = os.path.dirname(__file__)
-MODEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "../../models"))
-BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_f7_v1.zip")
-RED_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_red_f7_v1.zip")
+# === CARGA DE MODELOS ===
+MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../models"))
+BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_blue_f7_v2")
+RED_MODEL_PATH = os.path.join(MODEL_DIR, "a2c_red_f7_v3")
 
-# === CARGA DE MODELOS ENTRENADOS EN F7 ===
-print("🧠 Cargando modelos A2C F7...")
-model_blue = A2C.load(BLUE_MODEL_PATH, custom_objects={
-    "features_extractor_class": EnhancedTacticalFeatureExtractor
-})
-model_red = A2C.load(RED_MODEL_PATH, custom_objects={
-    "features_extractor_class": EnhancedTacticalFeatureExtractor
-})
-print("✅ Modelos cargados correctamente.")
+blue_model = A2C.load(BLUE_MODEL_PATH, custom_objects={"features_extractor_class": EnhancedTacticalFeatureExtractor}, device="auto")
+red_model = A2C.load(RED_MODEL_PATH, custom_objects={"features_extractor_class": EnhancedTacticalFeatureExtractor}, device="auto")
 
-# === ENVOLTORIO PARA ENFRENTAR AZUL VS ROJO ===
-class DualA2CEnvF7(Env_Fase7_MapaGrande):
-    def __init__(self):
-        super().__init__()
+# === ENTORNO Y RENDER ===
+env = Env_Fase7_Terreno()
+renderer = Renderer(width=1000, height=600, board_size=env.board_size)
 
-    def step(self, _):
-        obs = self._get_obs()
-        if self.current_player == 0:
-            action, _ = model_blue.predict(obs, deterministic=True)
-        else:
-            action, _ = model_red.predict(obs, deterministic=True)
-        return super().step(action)
+obs, _ = env.reset()
+done = False
+clock = pygame.time.Clock()
 
-# === LOOP PRINCIPAL DE VISUALIZACIÓN ===
-def main():
-    pygame.init()
-    env = DualA2CEnvF7()
-    obs, _ = env.reset()
-    renderer = Renderer(width=1000, height=600, board_size=env.board_size)
+while not done:
+    active_unit = env._get_active_unit()
+    team = env.current_player
 
-    done = False
-    clock = pygame.time.Clock()
+    if team == 0:
+        action, _ = blue_model.predict(obs, deterministic=True)
+    else:
+        action, _ = red_model.predict(obs, deterministic=True)
 
-    while not done:
-        _, reward, terminated, truncated, _ = env.step(0)
-        done = terminated or truncated
+    obs, _, done, _, _ = env.step(action)
 
-        renderer.draw_board(
-            units=env.units,
-            blocked_positions=(env.terrain == 99),
-            active_unit=env._get_active_unit(),
-            terrain=env.terrain
-        )
-        clock.tick(10)  # FPS (ajustable)
+    # === Pintar ===
+    blocked = (env.terrain == 99).astype(np.int8)
+    renderer.draw_board(units=env.units,
+                        terrain=env.terrain,
+                        blocked_positions=blocked,
+                        active_unit=active_unit)
 
-    pygame.quit()
-    print("🎮 Partida A2C F7 finalizada.")
+    clock.tick(8)  # Ajusta velocidad si lo necesitas
 
-if __name__ == "__main__":
-    main()
+pygame.quit()

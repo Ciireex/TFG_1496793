@@ -13,8 +13,8 @@ from gym_strategy.core.Renderer import Renderer
 
 # === MODELOS ===
 MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../models"))
-BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "ppo_blue_f7_v2.zip")
-RED_MODEL_PATH = os.path.join(MODEL_DIR, "ppo_red_f7_v2.zip")
+BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "ppo_blue_f7_v4.zip")
+RED_MODEL_PATH = os.path.join(MODEL_DIR, "ppo_red_f7_v4.zip")
 
 policy_kwargs = dict(
     features_extractor_class=EnhancedTacticalFeatureExtractor,
@@ -88,7 +88,7 @@ renderer.draw_board(
     terrain=getattr(env, "terrain_layer", env.terrain),
     highlight_attack=False
 )
-pygame.time.wait(1000)
+pygame.time.wait(500)
 pygame.quit()
 
 # === Resultado textual ===

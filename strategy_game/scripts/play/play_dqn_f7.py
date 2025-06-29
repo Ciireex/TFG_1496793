@@ -11,8 +11,8 @@ from gym_strategy.core.Renderer import Renderer
 
 # === CARGA DE MODELOS ===
 MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../models"))
-BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "dqn_blue_f7_v1.zip")
-RED_MODEL_PATH = os.path.join(MODEL_DIR, "dqn_red_f7_v1.zip")
+BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "dqn_blue_f7_v3.zip")
+RED_MODEL_PATH = os.path.join(MODEL_DIR, "dqn_red_f7_v3.zip")
 
 blue_model = DQN.load(BLUE_MODEL_PATH, device="auto")
 red_model = DQN.load(RED_MODEL_PATH, device="auto")

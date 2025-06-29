@@ -7,15 +7,15 @@ from sb3_contrib.ppo_mask import MaskablePPO
 # === RUTAS ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from gym_strategy.envs.StrategyEnv import Env_Fase7_MapaGrande
+from gym_strategy.envs.StrategyEnv import Env_Fase7_Terreno
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 from gym_strategy.core.Renderer import Renderer
 
 # === CONFIGURACIÓN DE MODELOS ===
 CURRENT_DIR = os.path.dirname(__file__)
 MODEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "../../models"))
-BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "maskableppo_blue_f7_v1.zip")
-RED_MODEL_PATH = os.path.join(MODEL_DIR, "maskableppo_red_f7_v1.zip")
+BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "maskableppo_blue_f7_v3.zip")
+RED_MODEL_PATH = os.path.join(MODEL_DIR, "maskableppo_red_f7_v3.zip")
 
 # === CARGA DE MODELOS ENTRENADOS EN F7 ===
 print("🧠 Cargando modelos MaskablePPO F7...")
@@ -28,7 +28,7 @@ model_red = MaskablePPO.load(RED_MODEL_PATH, custom_objects={
 print("✅ Modelos cargados correctamente.")
 
 # === ENVOLTORIO PARA ENFRENTAR AZUL VS ROJO EN F7 ===
-class DualMaskableEnvF7(Env_Fase7_MapaGrande):
+class DualMaskableEnvF7(Env_Fase7_Terreno):
     def __init__(self):
         super().__init__()
 
