@@ -17,7 +17,7 @@ class Unit:
             other_unit.health -= damage
 
     def get_attack_damage(self, other_unit):
-        return 20  # Daño genérico si no se redefine
+        return 20 
 
     def is_alive(self):
         return self.health > 0

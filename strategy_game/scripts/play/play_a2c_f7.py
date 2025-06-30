@@ -44,6 +44,6 @@ while not done:
                         blocked_positions=blocked,
                         active_unit=active_unit)
 
-    clock.tick(8)  # Ajusta velocidad si lo necesitas
+    clock.tick(8)  
 
 pygame.quit()

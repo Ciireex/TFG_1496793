@@ -57,14 +57,14 @@ def main():
 
         renderer.draw_board(
             units=env.units,
-            blocked_positions=(env.terrain == 99),  # ✅ muestra obstáculos
+            blocked_positions=(env.terrain == 99), 
             active_unit=env._get_active_unit(),
             terrain=env.terrain
         )
         clock.tick(2)  # Ajusta velocidad visual
 
     pygame.quit()
-    print("🎮 Partida finalizada.")
+    print("Partida finalizada.")
 
 if __name__ == "__main__":
     main()

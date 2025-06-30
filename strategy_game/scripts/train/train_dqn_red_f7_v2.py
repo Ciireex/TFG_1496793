@@ -37,7 +37,7 @@ class FrozenBlueWrapper(Wrapper):
         return obs, reward, terminated, truncated, info
 
 # === CARGA DEL MODELO AZUL CONGELADO ===
-print("📦 Cargando modelo DQN azul congelado...")
+print("Cargando modelo DQN azul congelado...")
 frozen_blue_model = DQN.load(BLUE_MODEL_PATH)
 
 # === CNN PERSONALIZADA PARA DQN ===
@@ -54,7 +54,7 @@ env = FrozenBlueWrapper(
 )
 
 # === CREACIÓN DEL MODELO DQN ROJO ===
-print("🧠 Creando modelo DQN rojo F7 v3 (vs azul congelado)...")
+print("Creando modelo DQN rojo F7 v3 (vs azul congelado)...")
 model = DQN(
     policy="CnnPolicy",
     env=env,
@@ -95,9 +95,9 @@ callbacks = [
 ]
 
 # === ENTRENAMIENTO ===
-print("🚀 Entrenando modelo DQN rojo en Fase 7 v3 contra DQN azul congelado...")
+print("Entrenando modelo DQN rojo en Fase 7 v3 contra DQN azul congelado...")
 model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks, progress_bar=True)
 
 # === GUARDADO FINAL ===
 model.save(os.path.join(MODEL_DIR, "dqn_red_f7_v3"))
-print("✅ Modelo DQN rojo F7 v3 guardado como dqn_red_f7_v3.zip")
+print("Modelo DQN rojo F7 v3 guardado como dqn_red_f7_v3.zip")

@@ -25,7 +25,7 @@ model_blue = MaskablePPO.load(BLUE_MODEL_PATH, custom_objects={
 model_red = MaskablePPO.load(RED_MODEL_PATH, custom_objects={
     "features_extractor_class": EnhancedTacticalFeatureExtractor
 })
-print("✅ Modelos cargados correctamente.")
+print("Modelos cargados correctamente.")
 
 # === ENVOLTORIO PARA ENFRENTAR AZUL VS ROJO ===
 class DualMaskableEnvF3(Env_Fase3_Obstaculos):
@@ -57,7 +57,7 @@ def main():
 
         renderer.draw_board(
             units=env.units,
-            blocked_positions=(env.terrain == 99),  # ✅ ahora los obstáculos se muestran
+            blocked_positions=(env.terrain == 99),  
             active_unit=env._get_active_unit(),
             terrain=env.terrain
         )

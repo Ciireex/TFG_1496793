@@ -18,14 +18,14 @@ BLUE_MODEL_PATH = os.path.join(MODEL_DIR, "maskableppo_blue_f6_v1.zip")
 RED_MODEL_PATH = os.path.join(MODEL_DIR, "maskableppo_red_f6_v1.zip")
 
 # === CARGA DE MODELOS ENTRENADOS EN F6 ===
-print("🧠 Cargando modelos MaskablePPO F6...")
+print("Cargando modelos MaskablePPO F6...")
 model_blue = MaskablePPO.load(BLUE_MODEL_PATH, custom_objects={
     "features_extractor_class": EnhancedTacticalFeatureExtractor
 })
 model_red = MaskablePPO.load(RED_MODEL_PATH, custom_objects={
     "features_extractor_class": EnhancedTacticalFeatureExtractor
 })
-print("✅ Modelos cargados correctamente.")
+print("Modelos cargados correctamente.")
 
 # === ENVOLTORIO PARA ENFRENTAR AZUL VS ROJO EN F6 ===
 class DualMaskableEnvF6(Env_Fase6_Terreno):
@@ -61,10 +61,10 @@ def main():
             active_unit=env._get_active_unit(),
             terrain=env.terrain
         )
-        clock.tick(10)  # Ajusta velocidad visual
+        clock.tick(10)
 
     pygame.quit()
-    print("🎮 Partida F6 finalizada.")
+    print("Partida F6 finalizada.")
 
 if __name__ == "__main__":
     main()

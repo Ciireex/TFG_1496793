@@ -41,7 +41,7 @@ renderer = Renderer(width=900, height=540, board_size=env.board_size)
 blue_model = PPO.load(BLUE_MODEL_PATH, env=env, device="cpu")
 
 # === MODELO ROJO RECONSTRUIDO ===
-print("🧊 Adaptando modelo rojo congelado F6 al tamaño del entorno F7...")
+print("Adaptando modelo rojo congelado F6 al tamaño del entorno F7...")
 red_model = PPO(policy="CnnPolicy", env=env, policy_kwargs=policy_kwargs, device="cpu", verbose=0)
 load_fc_layers_only(red_model, RED_MODEL_PATH)
 

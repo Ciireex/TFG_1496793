@@ -3,7 +3,6 @@ import sys
 import pygame
 from stable_baselines3 import A2C
 
-# Añadir ruta base del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from gym_strategy.envs.StrategyEnv import Env_Fase1_Soldiers4x4
@@ -13,8 +12,8 @@ from gym_strategy.core.Renderer import Renderer
 # === CONFIGURACIÓN ===
 CURRENT_DIR = os.path.dirname(__file__)
 MODEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "../../models"))
-MODEL_BLUE_PATH = os.path.join(MODEL_DIR, "a2c_blue_f1_v3")  # sin .zip
-MODEL_RED_PATH = os.path.join(MODEL_DIR, "a2c_red_f1_v3")    # sin .zip
+MODEL_BLUE_PATH = os.path.join(MODEL_DIR, "a2c_blue_f1_v3") 
+MODEL_RED_PATH = os.path.join(MODEL_DIR, "a2c_red_f1_v3")  
 
 # === CARGA DE MODELOS ===
 print("🧠 Cargando modelos A2C F1 v3...")

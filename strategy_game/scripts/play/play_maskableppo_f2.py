@@ -61,8 +61,8 @@ def main():
             active_unit=env._get_active_unit(),
             terrain=env.terrain
         )
-        clock.tick(2)  # Velocidad de visualización
-
+        clock.tick(2)  
+        
     pygame.quit()
     print("🎮 Partida finalizada.")
 

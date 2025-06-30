@@ -28,7 +28,7 @@ policy_kwargs = dict(
 )
 
 # === CARGAR MODELO AZUL CONGELADO (solo para inferencia) ===
-print("🧊 Cargando modelo azul congelado...")
+print("Cargando modelo azul congelado...")
 dummy_env = Env_Fase7_MapaGrande()
 frozen_blue = DQN(
     policy="CnnPolicy",
@@ -101,9 +101,9 @@ callbacks = [
 ]
 
 # === ENTRENAMIENTO ===
-print("🚀 Entrenando modelo DQN rojo en Fase 7 vs azul congelado...")
+print("Entrenando modelo DQN rojo en Fase 7 vs azul congelado...")
 model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks, progress_bar=True)
 
 # === GUARDADO FINAL ===
 model.save(os.path.join(MODEL_DIR, "dqn_red_f7_v1"))
-print("✅ Modelo DQN rojo F7 guardado como dqn_red_f7_v1.zip")
+print("Modelo DQN rojo F7 guardado como dqn_red_f7_v1.zip")

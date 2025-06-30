@@ -29,7 +29,7 @@ class DynamicSpatialAttention(nn.Module):
         super().__init__()
         self.attn_conv = nn.Conv2d(channels, 1, kernel_size=1)
         self.sigmoid = nn.Sigmoid()
-        self.bn = nn.BatchNorm2d(channels)  # Para mayor estabilidad
+        self.bn = nn.BatchNorm2d(channels) 
 
     def forward(self, x):
         x = self.bn(x)
@@ -92,7 +92,6 @@ class EnhancedTacticalFeatureExtractor(BaseFeaturesExtractor):
             nn.LayerNorm(features_dim)
         )
 
-        # Procesamiento del canal del equipo activo (canal 18)
         self.team_net = nn.Sequential(
             nn.Linear(1, 32),
             nn.ReLU()
@@ -105,8 +104,7 @@ class EnhancedTacticalFeatureExtractor(BaseFeaturesExtractor):
         cnn_features = self.cnn(x)
         tactical_features = self.feature_net(cnn_features)
 
-        # Extrae el valor medio del canal del equipo actual (canal 18)
-        team_channel = x[:, 18:19, :, :]  # [B, 1, H, W]
+        team_channel = x[:, 18:19, :, :]
         team_scalar = team_channel.view(team_channel.size(0), -1).mean(dim=1, keepdim=True)
         team_scalar = torch.nan_to_num(team_scalar, nan=0.0)
 

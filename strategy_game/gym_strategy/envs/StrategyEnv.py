@@ -464,6 +464,12 @@ class StrategyEnv_Def(gym.Env):
             return None  # Doble KO
         else:
             return None  # Ambos vivos
+        
+    def _get_unit_at(self, pos):
+        for u in self.units:
+            if u.position == pos and u.is_alive():
+                return u
+        return None
 
 # Ejemplos para cada fase de entrenamiento:
 class Env_Fase1_Soldiers4x4(StrategyEnv_Def):

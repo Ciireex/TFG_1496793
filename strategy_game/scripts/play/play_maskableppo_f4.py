@@ -46,7 +46,7 @@ def main():
     pygame.init()
     env = DualMaskableEnvF4()
     obs, _ = env.reset()
-    renderer = Renderer(width=600, height=400, board_size=env.board_size)  # Tablero 6x4
+    renderer = Renderer(width=600, height=400, board_size=env.board_size) 
 
     done = False
     clock = pygame.time.Clock()
@@ -57,14 +57,14 @@ def main():
 
         renderer.draw_board(
             units=env.units,
-            blocked_positions=(env.terrain == 99),  # ✅ Muestra los obstáculos
+            blocked_positions=(env.terrain == 99),  
             active_unit=env._get_active_unit(),
             terrain=env.terrain
         )
-        clock.tick(2)  # Velocidad visual
+        clock.tick(2)  
 
     pygame.quit()
-    print("🎮 Partida finalizada.")
+    print("Partida finalizada.")
 
 if __name__ == "__main__":
     main()

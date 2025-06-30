@@ -3,7 +3,6 @@ import sys
 import pygame
 from stable_baselines3 import DQN
 
-# Ruta base del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from gym_strategy.envs.StrategyEnv import Env_Fase1_Soldiers4x4

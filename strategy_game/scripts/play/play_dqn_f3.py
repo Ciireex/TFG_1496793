@@ -54,7 +54,7 @@ def main():
 
         renderer.draw_board(
             units=env.units,
-            blocked_positions=(env.terrain == 99).astype(int),  # Obstáculos como máscara
+            blocked_positions=(env.terrain == 99).astype(int), 
             active_unit=env._get_active_unit()
         )
         clock.tick(2)
