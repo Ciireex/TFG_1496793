@@ -2,6 +2,12 @@
 
 Este proyecto forma parte del Trabajo de Fin de Grado (TFG) en Ingeniería Informática en la Universitat Autònoma de Barcelona. Consiste en el diseño e implementación de un entorno compatible con Gymnasium para entrenar agentes de **aprendizaje por refuerzo (RL)** en un juego de estrategia por turnos.
 
+## Vista previa del juego
+
+<p align="center">
+  <img src="img/game.png" width="600"/>
+</p
+
 ## Objetivos del Proyecto
 
 - Diseñar un entorno estratégico con reglas claras y mecánicas tácticas inspiradas en *Advance Wars* y *Fire Emblem*.
