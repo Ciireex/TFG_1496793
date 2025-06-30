@@ -43,6 +43,14 @@ El entrenamiento se realizó en **7 fases progresivas**, desde mapas simples con
 
 Gráficas y tablas de resultados disponibles en las carpetas `/logs/` y `/graficas_tfevents/`.
 
+## Recursos gráficos
+
+Durante el desarrollo se utilizaron sprites del pack **Tiny RPG Character Asset Pack** creado por [Zerie](https://zerie.itch.io/tiny-rpg-character-asset-pack), con fines exclusivamente académicos.  
+Asimismo, se agradece al autor *Zerie* por la creación de dicho material, que fue utilizado para la representación visual de las unidades en el juego.
+
+> ⚠️ Por motivos de derechos de distribución, los archivos de imagen han sido **retirados del repositorio público**.  
+> En su lugar, el entorno utiliza **formas geométricas básicas** (círculos, cuadrados, etc.) si no se encuentran los sprites.
+
 ## Autor
 
 **Eric Rodríguez Merichal**  
