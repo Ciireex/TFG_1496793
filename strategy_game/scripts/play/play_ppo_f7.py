@@ -67,7 +67,6 @@ while not done:
         blocked_positions=blocked,
         active_unit=active_unit,
         terrain=getattr(env, "terrain_layer", env.terrain),
-        highlight_attack=True
     )
     pygame.time.delay(250)
 

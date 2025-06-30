@@ -10,7 +10,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from gym_strategy.envs.StrategyEnv import Env_Fase6_Terreno
 from gym_strategy.utils.CustomCNN_Pro2 import EnhancedTacticalFeatureExtractor
 from gym_strategy.core.Renderer import Renderer
-
 # === CONFIGURACIÓN DE MODELOS ===
 CURRENT_DIR = os.path.dirname(__file__)
 MODEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "../../models"))
