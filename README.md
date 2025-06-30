@@ -46,7 +46,7 @@ Gráficas y tablas de resultados disponibles en las carpetas `/logs/` y `/grafic
 ## Autor
 
 **Eric Rodríguez Merichal**  
-📧 eric.rodriguez.merichal@e-campus.uab.cat
+📧 ericrmerichal@gmail.com
 
 ## Fecha de entrega
 
